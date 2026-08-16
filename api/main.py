@@ -12,6 +12,7 @@ from api.reports import router as reports_router
 from api.dashboard import router as dashboard_router
 from api.ksignal import router as ksignal_router
 from api.catalog import router as catalog_router   # 기존 import들 아래에 추가
+from api.app import router as app_router
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,6 +39,7 @@ app.include_router(google_router)
 app.include_router(reports_router)
 app.include_router(dashboard_router)
 app.include_router(catalog_router)                 # 다른 include_router 줄들 아래에 추가
+app.include_router(app_router)
 
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
