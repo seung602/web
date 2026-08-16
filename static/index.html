@@ -1,91 +1,163 @@
-<!doctype html>
-<html lang="ko" dir="ltr">
+<!DOCTYPE html>
+<html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0f172a">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="K-Beauty Trends">
-  <link rel="manifest" href="/static/manifest.json">
-  <title>K-Beauty Trend Intelligence</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K-Beauty Trend Intelligence</title>
+<style>
+:root{--bg:#0b1020;--card:#161d36;--card2:#1e2749;--text:#eef1ff;--muted:#8f97bd;--accent:#7c5cff;--blue:#4da3ff;--green:#3ddc97;--yellow:#ffd166}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;padding:16px;max-width:860px;margin:0 auto;padding-bottom:60px}
+.hero{background:linear-gradient(135deg,#1b2340,#2a1b4d);border-radius:20px;padding:24px 20px;margin-bottom:16px}
+.hero h1{font-size:22px;margin-bottom:6px}
+.hero p{color:var(--muted);font-size:12px}
+.badge-date{display:inline-block;background:var(--card2);padding:5px 12px;border-radius:999px;font-size:11px;color:var(--muted);margin-top:10px}
+h2{font-size:16px;margin:22px 0 10px}
+.muted{color:var(--muted);font-size:12px}
+.card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:12px}
+.row{display:flex;align-items:center;gap:12px;background:var(--card2);border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
+.row:hover{outline:1px solid var(--accent)}
+.rank{min-width:30px;height:30px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:13px}
+.info{flex:1;min-width:0}
+.info b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.price{font-size:13px;color:var(--green);font-weight:bold}
+.badge{min-width:44px;text-align:center;padding:5px 8px;border-radius:8px;background:var(--green);color:#04291a;font-weight:bold;font-size:12px}
+.badge.new{background:var(--blue);color:#03203c}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;flex-wrap:wrap}
+.chip{flex:0 0 auto;background:var(--card);border-radius:12px;padding:8px 12px;font-size:12px;margin:2px}
+.chip .score{color:var(--yellow);font-weight:bold;margin-left:6px}
+.kw-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.kw-tag{background:var(--accent);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:bold}
+input{width:100%;background:var(--card);border:1px solid #2a3560;border-radius:12px;padding:12px;color:var(--text);font-size:14px;margin-bottom:6px}
+.link{color:var(--blue);font-size:12px;text-decoration:none}
+#overlay{position:fixed;inset:0;background:rgba(4,8,20,.7);display:none;align-items:flex-end;justify-content:center;z-index:50}
+#overlay.open{display:flex}
+#sheet{background:var(--card);border-radius:20px 20px 0 0;max-width:860px;width:100%;max-height:80vh;overflow:auto;padding:20px}
+.closebtn{float:right;background:var(--card2);border:none;color:var(--text);border-radius:8px;padding:6px 10px;cursor:pointer}
+</style>
 </head>
-  <a href="/static/catalog.html" style="position:fixed;bottom:16px;right:16px;z-index:999;background:#7c5cff;color:#fff;padding:12px 18px;border-radius:999px;text-decoration:none;font-weight:bold;box-shadow:0 4px 20px rgba(124,92,255,.5)">🛍️ 상품 랭킹</a>
 <body>
-  <div class="app">
-    <header class="header">
-      <div class="header-left">
-        <p class="eyebrow" data-i18n="eyebrow">KOREA → EUROPE MARKET MONITOR</p>
-        <h1 data-i18n="title">K-Beauty Trend Intelligence</h1>
-        <p id="subtitle" class="subtitle muted">—</p>
-      </div>
-      <div class="header-right">
-        <select id="language" class="lang-select" aria-label="Language">
-          <option value="ko">한국어</option>
-          <option value="en">English</option>
-          <option value="ar">العربية</option>
-        </select>
-        <button type="button" id="refreshBtn" class="btn-ghost" data-i18n="refresh">새로고침</button>
-      </div>
-    </header>
+<div class="hero">
+  <h1>💄 K-Beauty Trend Intelligence</h1>
+  <p>글로벌 트렌드 ↔ 국내 인기 상품 매칭 대시보드</p>
+  <span class="badge-date" id="dateBadge">불러오는 중...</span>
+  <p style="margin-top:10px"><a class="link" href="/static/catalog.html">전체 랭킹 보기 →</a></p>
+</div>
 
-    <section class="hero panel">
-      <div class="panel-head">
-        <div>
-          <h2 data-i18n="ksignalTitle">🇰🇷 오늘의 한국 선행 랭킹</h2>
-          <p class="muted" data-i18n="ksignalHint">
-            Olive Young · Glowpick · Hwahae · Zigzag 등 국내 이커머스에서 빠르게 오르는 상품
-          </p>
-        </div>
-        <div class="hero-meta">
-          <span id="ksDate" class="pill">—</span>
-          <span id="ksCount" class="pill soft">—</span>
-        </div>
-      </div>
+<input id="searchInput" placeholder="상품/브랜드 검색 (예: 토너, rice, 세라마이드...)" />
+<div id="searchWrap"></div>
 
-      <div class="period-tabs" id="periodTabs" role="tablist">
-        <button type="button" class="period-tab active" data-period="day" data-i18n="periodDay">오늘</button>
-        <button type="button" class="period-tab" data-period="week" data-i18n="periodWeek">이번 주</button>
-        <button type="button" class="period-tab" data-period="month" data-i18n="periodMonth">이번 달</button>
-      </div>
+<h2>🔥 오늘의 트렌드 키워드</h2>
+<div class="chips" id="trendChips"></div>
 
-      <div id="mallFilters" class="chip-row" aria-label="Mall filters"></div>
-      <div id="ksEmpty" class="empty hidden" data-i18n="ksEmpty">
-        아직 K-Signal 데이터가 없습니다. 수집 파이프라인이 돌아간 뒤 표시됩니다.
-      </div>
-      <div id="ksList" class="ks-list"></div>
-    </section>
+<h2>🎯 트렌드 × 인기 상품 매칭</h2>
+<div id="matchWrap"></div>
 
-    <section class="panel">
-      <div class="panel-head">
-        <div>
-          <h2 data-i18n="westTitle">🌍 서구 시장 신호</h2>
-          <p class="muted" data-i18n="westHint">
-            TikTok · Amazon · Instagram · YouTube 기준 집계 (참고용 · 일별 검색 로테이션 있음)
-          </p>
-        </div>
-        <span id="westDate" class="pill soft">—</span>
-      </div>
-      <div id="westList" class="west-list"></div>
-      <div id="westEmpty" class="empty hidden" data-i18n="westEmpty">서구 트렌드 점수 데이터가 없습니다.</div>
-    </section>
+<h2>🚀 순위 상승 상품</h2>
+<div id="risingWrap"></div>
 
-    <footer class="footer">
-      <span data-i18n="footer">Read-only · 외부 API 호출 없음 · DB 스냅샷 기준</span>
-    </footer>
-  </div>
+<h2>🏆 오늘의 인기 상품 랭킹</h2>
+<div id="rankWrap"></div>
 
-  <script src="/static/app.js"></script>
-  <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("/static/service-worker.js").catch(() => {});
-      });
-    }
-  </script>
+<h2>🌐 서구 시장 검색 시그널</h2>
+<div class="chips" id="googleWrap"></div>
+
+<div id="overlay"><div id="sheet"></div></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>(s??'').toString().replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtPrice=v=>v==null?'':'₩'+Number(v).toLocaleString('ko-KR');
+async function api(p){const r=await fetch(p);if(!r.ok)throw new Error(p+' → '+r.status);return r.json();}
+
+async function init(){
+  try{
+    const H=await api('/api/app/home');
+    $('#dateBadge').textContent='트렌드 '+(H.updated_at.trends||'-')+' · 상품 '+(H.updated_at.catalog||'-');
+    $('#trendChips').innerHTML=H.top_trends.map(t=>'<span class="chip">'+esc(t.keyword)+'<span class="score">'+Math.round(t.score||0)+'</span></span>').join('');
+    renderMatches(H.trend_product_matches);
+    renderRising(H.rising_products);
+    renderRankings(H.top_rankings);
+    $('#googleWrap').innerHTML=H.google_signals.map(g=>'<span class="chip">'+esc(g.query||g.text||'')+'</span>').join('')||'<span class="muted">데이터 없음</span>';
+  }catch(e){
+    $('#matchWrap').innerHTML='<div class="card"><p class="muted">데이터 로드 실패: '+esc(e.message)+'</p></div>';
+  }
+}
+
+function renderMatches(list){
+  const wrap=$('#matchWrap');wrap.innerHTML='';
+  if(!list.length){wrap.innerHTML='<div class="card"><p class="muted">매칭된 상품이 없습니다.</p></div>';return;}
+  list.forEach(m=>{
+    const card=document.createElement('div');card.className='card';
+    card.innerHTML='<div class="kw-head"><span class="kw-tag">#'+esc(m.keyword)+'</span><span class="muted">트렌드 점수 '+Math.round(m.score||0)+'</span></div>';
+    m.products.forEach(p=>{
+      const row=document.createElement('div');row.className='row';
+      row.innerHTML='<div class="info"><b>'+esc(p.product_name)+'</b><span class="muted">'+esc(p.brand||'')+' · '+esc(p.category||'')+'</span></div>';
+      row.onclick=()=>openDetail(p.product_id);
+      card.appendChild(row);
+    });
+    wrap.appendChild(card);
+  });
+}
+
+function renderRising(list){
+  const wrap=$('#risingWrap');wrap.innerHTML='';
+  list.slice(0,10).forEach(it=>{
+    const row=document.createElement('div');row.className='row';
+    row.innerHTML='<span class="badge'+(it.direction==='new'?' new':'')+'">'+(it.direction==='new'?'NEW':'+'+it.rank_change)+'</span>'+
+      '<div class="info"><b>'+esc(it.product_name||it.product_id)+'</b><span class="muted">'+esc(it.brand||'')+'</span></div>'+
+      '<span class="muted">'+(it.previous_rank??'-')+' → '+it.current_rank+'위</span>';
+    row.onclick=()=>openDetail(it.product_id);
+    wrap.appendChild(row);
+  });
+}
+
+function renderRankings(list){
+  const wrap=$('#rankWrap');wrap.innerHTML='';
+  list.forEach(it=>{
+    const row=document.createElement('div');row.className='row';
+    row.innerHTML='<span class="rank">'+it.rank_num+'</span>'+
+      '<div class="info"><b>'+esc(it.product_name||it.product_id)+'</b><span class="muted">'+esc(it.brand||'')+'</span></div>'+
+      '<span class="price">'+fmtPrice(it.sale_price??it.price)+'</span>';
+    row.onclick=()=>openDetail(it.product_id);
+    wrap.appendChild(row);
+  });
+}
+
+async function openDetail(pid){
+  try{
+    const d=await api('/api/catalog/products/'+encodeURIComponent(pid));
+    const p=d.product;
+    $('#sheet').innerHTML='<button class="closebtn" onclick="closeDetail()">✕ 닫기</button>'+
+      '<h3 style="margin:6px 0">'+esc(p.product_name)+'</h3>'+
+      '<p class="muted">'+esc(p.brand)+' · '+esc(p.source)+' · '+esc(p.category)+' · '+esc(p.status)+'</p>'+
+      '<p style="margin:10px 0"><a class="link" href="'+esc(p.product_url)+'" target="_blank">상품 페이지 열기 ↗</a></p>'+
+      '<h4 class="muted">최근 가격</h4><div>'+d.snapshots.slice(0,7).map(s=>'<span class="chip">'+s.snapshot_date+' '+fmtPrice(s.sale_price??s.price)+'</span>').join('')+'</div>'+
+      '<h4 class="muted">최근 랭킹</h4><div>'+d.rankings.slice(0,10).map(r=>'<span class="chip">'+r.ranking_date+' · '+esc(r.source)+' · '+r.rank_num+'위</span>').join('')+'</div>';
+    $('#overlay').classList.add('open');
+  }catch(e){alert('상세 조회 실패: '+e.message);}
+}
+function closeDetail(){$('#overlay').classList.remove('open');}
+$('#overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeDetail();});
+
+let t;
+$('#searchInput').addEventListener('input',e=>{
+  clearTimeout(t);
+  t=setTimeout(async()=>{
+    const q=e.target.value.trim(),wrap=$('#searchWrap');
+    if(!q){wrap.innerHTML='';return;}
+    const r=await api('/api/catalog/products?q='+encodeURIComponent(q)+'&limit=10');
+    wrap.innerHTML='';
+    r.items.forEach(it=>{
+      const row=document.createElement('div');row.className='row';
+      row.innerHTML='<div class="info"><b>'+esc(it.product_name)+'</b><span class="muted">'+esc(it.brand)+' · '+esc(it.source)+'</span></div>';
+      row.onclick=()=>openDetail(it.product_id);
+      wrap.appendChild(row);
+    });
+  },300);
+});
+
+init();
+</script>
 </body>
 </html>
