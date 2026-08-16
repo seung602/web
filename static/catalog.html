@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K-Beauty 상품 랭킹</title>
+<style>
+:root{--bg:#0b1020;--card:#161d36;--card2:#1e2749;--text:#eef1ff;--muted:#93a" color-scheme:dark}
+:root{--bg:#0b1020;--card:#161d36;--text:#eef1ff;--muted:#8f97bd;--accent:#7c5cff;--blue:#4da3ff;--green:#3ddc97;--red:#ff6b6b}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;padding:20px;max-width:860px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+h1{font-size:22px}
+h3{margin-bottom:12px;font-size:16px}
+h4{margin:14px 0 8px;font-size:13px;color:var(--muted)}
+a{color:var(--blue);text-decoration:none}
+.muted{color:var(--muted);font-size:12px}
+.badge-date{background:var(--card);padding:6px 12px;border-radius:999px;font-size:12px;color:var(--muted)}
+.card{background:var(--card);border-radius:16px;padding:18px;margin-bottom:16px}
+.row{display:flex;align-items:center;gap:12px;background:var(--card2);border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
+.row:hover{outline:1px solid var(--accent)}
+.rank{min-width:30px;height:30px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:13px}
+.info{flex:1;min-width:0}
+.info b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.price{font-size:13px;color:var(--green);font-weight:bold}
+.badge{min-width:44px;text-align:center;padding:5px 8px;border-radius:8px;background:var(--green);color:#04291a;font-weight:bold;font-size:12px}
+.badge.new{background:var(--blue);color:#03203c}
+.rankinfo{font-size:12px;color:var(--muted)}
+.chip{display:inline-block;background:var(--card2);border-radius:8px;padding:5px 9px;margin:3px;font-size:12px;color:var(--muted)}
+input{width:100%;background:var(--card);border:1px solid #2a3560;border-radius:12px;padding:12px;color:var(--text);font-size:14px;margin-bottom:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🛍️ K-Beauty 상품 랭킹</h1>
+  <span class="badge-date" id="dateBadge">불러오는 중...</span>
+</header>
+<p class="muted" style="margin-bottom:16px"><a href="/">← 트렌드 홈으로</a></p>
+
+<input id="searchInput" placeholder="상품/브랜드 검색 (예: 토너, rice, anua...)" />
+<div id="searchWrap"></div>
+
+<div id="changesWrap"></div>
+<div id="rankingsWrap"></div>
+<div id="detailWrap"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>(s??'').toString().replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtPrice=v=>v==null?'':'₩'+Number(v).toLocaleString('ko-KR');
+async function api(p){const r=await fetch(p);if(!r.ok)throw new Error(p+' → '+r.status);return r.json();}
+
+async function init(){
+  try{
+    const [today,change]=await Promise.all([
+      api('/api/catalog/rankings/today?limit=500'),
+      api('/api/catalog/rankings/change?limit=100')
+    ]);
+    $('#dateBadge').textContent=(today.ranking_date||'-')+' 기준';
+    renderChanges(change.items);
+    renderRankings(today.items);
+  }catch(e){
+    $('#rankingsWrap').innerHTML='<div class="card"><p class="muted">데이터 로드 실패: '+esc(e.message)+'</p></div>';
+  }
+}
+
+function renderRankings(items){
+  const groups={};
+  items.forEach(it=>{
+    const key=(it.source||'')+' · '+(it.ranking_type||'')+(it.category?' · '+it.category:'');
+    (groups[key]=groups[key]||[]).push(it);
+  });
+  const wrap=$('#rankingsWrap');wrap.innerHTML='';
+  Object.keys(groups).forEach(key=>{
+    const card=document.createElement('div');card.className='card';
+    card.innerHTML='<h3>🏆 '+esc(key)+'</h3>';
+    groups[key].sort((a,b)=>a.rank_num-b.rank_num).slice(0,20).forEach(it=>{
+      const row=document.createElement('div');row.className='row';
+      row.innerHTML='<span class="rank">'+it.rank_num+'</span>'+
+        '<div class="info"><b>'+esc(it.product_name||it.product_id)+'</b>'+
+        '<span class="muted">'+esc(it.brand||'')+' · '+esc(it.category||'')+'</span></div>'+
+        '<span class="price">'+fmtPrice(it.sale_price??it.price)+'</span>';
+      row.onclick=()=>openDetail(it.product_id);
+      card.appendChild(row);
+    });
+    wrap.appendChild(card);
+  });
+}
+
+function renderChanges(items){
+  const risers=items.filter(i=>i.direction==='up').slice(0,10);
+  const news=items.filter(i=>i.direction==='new').slice(0,10);
+  const wrap=$('#changesWrap');wrap.innerHTML='';
+  const mk=(title,list,badgeFn,cls)=>{
+    if(!list.length)return;
+    const card=document.createElement('div');card.className='card';
+    card.innerHTML='<h3>'+title+'</h3>';
+    list.forEach(it=>{
+      const row=document.createElement('div');row.className='row';
+      row.innerHTML='<span class="badge '+(cls||'')+'">'+badgeFn(it)+'</span>'+
+        '<div class="info"><b>'+esc(it.product_name||it.product_id)+'</b>'+
+        '<span class="muted">'+esc(it.source||'')+' · '+esc(it.category||'')+'</span></div>'+
+        '<span class="rankinfo">'+(it.previous_rank??'-')+' → '+it.current_rank+'위</span>';
+      row.onclick=()=>openDetail(it.product_id);
+      card.appendChild(row);
+    });
+    wrap.appendChild(card);
+  };
+  mk('🚀 순위 상승 TOP',risers,it=>'+'+it.rank_change);
+  mk('🆕 신규 진입',news,()=>'NEW','new');
+}
+
+async function openDetail(pid){
+  try{
+    const d=await api('/api/catalog/products/'+encodeURIComponent(pid));
+    const p=d.product;
+    $('#detailWrap').innerHTML='<div class="card"><h3>'+esc(p.product_name)+'</h3>'+
+      '<p class="muted">'+esc(p.brand)+' · '+esc(p.source)+' · '+esc(p.category)+' · '+esc(p.status)+'</p>'+
+      '<p style="margin:8px 0"><a href="'+esc(p.product_url)+'" target="_blank">상품 페이지 열기 ↗</a></p>'+
+      '<h4>최근 가격</h4><div>'+d.snapshots.slice(0,7).map(s=>'<span class="chip">'+s.snapshot_date+' '+fmtPrice(s.sale_price??s.price)+'</span>').join('')+'</div>'+
+      '<h4>최근 랭킹</h4><div>'+d.rankings.slice(0,10).map(r=>'<span class="chip">'+r.ranking_date+' · '+esc(r.source)+' · '+r.rank_num+'위</span>').join('')+'</div></div>';
+    $('#detailWrap').scrollIntoView({behavior:'smooth'});
+  }catch(e){alert('상세 조회 실패: '+e.message);}
+}
+
+let t;
+$('#searchInput').addEventListener('input',e=>{
+  clearTimeout(t);
+  t=setTimeout(async()=>{
+    const q=e.target.value.trim(),wrap=$('#searchWrap');
+    if(!q){wrap.innerHTML='';return;}
+    const r=await api('/api/catalog/products?q='+encodeURIComponent(q)+'&limit=10');
+    wrap.innerHTML='';
+    r.items.forEach(it=>{
+      const row=document.createElement('div');row.className='row';
+      row.innerHTML='<div class="info"><b>'+esc(it.product_name)+'</b><span class="muted">'+esc(it.brand)+' · '+esc(it.source)+'</span></div>';
+      row.onclick=()=>openDetail(it.product_id);
+      wrap.appendChild(row);
+    });
+  },300);
+});
+
+init();
+</script>
+</body>
+</html>
