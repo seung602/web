@@ -66,9 +66,9 @@ def _top_trends(conn, limit):
 def _google_signals(conn, limit):
     return _rows(
         conn,
-        """SELECT signal_date, platform, query, tag, region, text
-           FROM raw_signals
-           WHERE LOWER(platform) LIKE 'google%'
+        """SELECT signal_date, region, seed_keyword, keyword, query_type,
+                  intent, interest_score, rising_score, source
+           FROM google_signals
            ORDER BY id DESC LIMIT ?""",
         (limit,),
     )
