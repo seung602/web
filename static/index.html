@@ -8,10 +8,13 @@
 :root{--bg:#0b1020;--card:#161d36;--card2:#1e2749;--text:#eef1ff;--muted:#8f97bd;--accent:#7c5cff;--blue:#4da3ff;--green:#3ddc97;--yellow:#ffd166}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;padding:16px;max-width:860px;margin:0 auto;padding-bottom:60px}
-.hero{background:linear-gradient(135deg,#1b2340,#2a1b4d);border-radius:20px;padding:24px 20px;margin-bottom:16px}
+.hero{position:relative;background:linear-gradient(135deg,#1b2340,#2a1b4d);border-radius:20px;padding:24px 20px;margin-bottom:16px}
 .hero h1{font-size:22px;margin-bottom:6px}
 .hero p{color:var(--muted);font-size:12px}
 .badge-date{display:inline-block;background:var(--card2);padding:5px 12px;border-radius:999px;font-size:11px;color:var(--muted);margin-top:10px}
+.langs{position:absolute;top:16px;inset-inline-end:16px;display:flex;gap:6px}
+.lang{background:var(--card2);border:1px solid #2a3560;color:var(--muted);border-radius:8px;padding:4px 9px;font-size:11px;cursor:pointer}
+.lang.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 h2{font-size:16px;margin:22px 0 10px}
 .muted{color:var(--muted);font-size:12px}
 .card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:12px}
@@ -25,7 +28,7 @@ h2{font-size:16px;margin:22px 0 10px}
 .badge.new{background:var(--blue);color:#03203c}
 .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;flex-wrap:wrap}
 .chip{flex:0 0 auto;background:var(--card);border-radius:12px;padding:8px 12px;font-size:12px;margin:2px}
-.chip .score{color:var(--yellow);font-weight:bold;margin-left:6px}
+.chip .score{color:var(--yellow);font-weight:bold;margin-inline-start:6px}
 .kw-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .kw-tag{background:var(--accent);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:bold}
 input{width:100%;background:var(--card);border:1px solid #2a3560;border-radius:12px;padding:12px;color:var(--text);font-size:14px;margin-bottom:6px}
@@ -38,28 +41,33 @@ input{width:100%;background:var(--card);border:1px solid #2a3560;border-radius:1
 </head>
 <body>
 <div class="hero">
+  <div class="langs">
+    <button class="lang" data-lang="ko">한국어</button>
+    <button class="lang" data-lang="en">EN</button>
+    <button class="lang" data-lang="ar">العربية</button>
+  </div>
   <h1>💄 K-Beauty Trend Intelligence</h1>
-  <p>글로벌 트렌드 ↔ 국내 인기 상품 매칭 대시보드</p>
-  <span class="badge-date" id="dateBadge">불러오는 중...</span>
-  <p style="margin-top:10px"><a class="link" href="/static/catalog.html">전체 랭킹 보기 →</a></p>
+  <p id="subtitle"></p>
+  <span class="badge-date" id="dateBadge"></span>
+  <p style="margin-top:10px"><a class="link" id="fullRank" href="/static/catalog.html"></a></p>
 </div>
 
-<input id="searchInput" placeholder="상품/브랜드 검색 (예: 토너, rice, 세라마이드...)" />
+<input id="searchInput" />
 <div id="searchWrap"></div>
 
-<h2>🔥 오늘의 트렌드 키워드</h2>
+<h2 id="hTrends"></h2>
 <div class="chips" id="trendChips"></div>
 
-<h2>🎯 트렌드 × 인기 상품 매칭</h2>
+<h2 id="hMatches"></h2>
 <div id="matchWrap"></div>
 
-<h2>🚀 순위 상승 상품</h2>
+<h2 id="hRising"></h2>
 <div id="risingWrap"></div>
 
-<h2>🏆 오늘의 인기 상품 랭킹</h2>
+<h2 id="hRankings"></h2>
 <div id="rankWrap"></div>
 
-<h2>🌐 서구 시장 검색 시그널</h2>
+<h2 id="hGoogle"></h2>
 <div class="chips" id="googleWrap"></div>
 
 <div id="overlay"><div id="sheet"></div></div>
@@ -70,71 +78,87 @@ const esc=s=>(s??'').toString().replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','
 const fmtPrice=v=>v==null?'':'₩'+Number(v).toLocaleString('ko-KR');
 async function api(p){const r=await fetch(p);if(!r.ok)throw new Error(p+' → '+r.status);return r.json();}
 
-async function init(){
-  try{
-    const H=await api('/api/app/home');
-    $('#dateBadge').textContent='트렌드 '+(H.updated_at.trends||'-')+' · 상품 '+(H.updated_at.catalog||'-');
-    $('#trendChips').innerHTML=H.top_trends.map(t=>'<span class="chip">'+esc(t.keyword)+'<span class="score">'+Math.round(t.score||0)+'</span></span>').join('');
-    renderMatches(H.trend_product_matches);
-    renderRising(H.rising_products);
-    renderRankings(H.top_rankings);
-    $('#googleWrap').innerHTML=H.google_signals.map(g=>'<span class="chip">'+esc(g.keyword)+'<span class="score">'+esc(g.region||'')+' ↑'+Math.round(g.rising_score||0)+'</span></span>').join('')||'<span class="muted">데이터 없음</span>';
-    $('#matchWrap').innerHTML='<div class="card"><p class="muted">데이터 로드 실패: '+esc(e.message)+'</p></div>';
-  }
-}
+const I18N={
+ko:{subtitle:'글로벌 트렌드 ↔ 국내 인기 상품 매칭 대시보드',fullRankings:'전체 랭킹 보기 →',search:'상품/브랜드 검색 (예: 토너, rice, 세라마이드...)',trends:'🔥 오늘의 트렌드 키워드',matches:'🎯 트렌드 × 인기 상품 매칭',rising:'🚀 순위 상승 상품',rankings:'🏆 오늘의 인기 상품 랭킹',google:'🌐 서구 시장 검색 시그널',score:'트렌드 점수',noMatch:'매칭된 상품이 없습니다.',noData:'데이터 없음',loading:'불러오는 중...',tL:'트렌드',cL:'상품',price:'최근 가격',rank:'최근 랭킹',open:'상품 페이지 열기 ↗',close:'✕ 닫기',new:'NEW',fail:'데이터 로드 실패: '},
+en:{subtitle:'Global trends ↔ Korea top-product matching dashboard',fullRankings:'Full rankings →',search:'Search products/brands (e.g. toner, rice, ceramide...)',trends:"🔥 Today's Trend Keywords",matches:'🎯 Trend × Top Product Matches',rising:'🚀 Rising Products',rankings:"🏆 Today's Top Products",google:'🌐 Western Market Search Signals',score:'trend score',noMatch:'No matched products.',noData:'No data',loading:'Loading...',tL:'Trends',cL:'Catalog',price:'Recent prices',rank:'Recent rankings',open:'Open product page ↗',close:'✕ Close',new:'NEW',fail:'Load failed: '},
+ar:{subtitle:'لوحة مطابقة الاتجاهات العالمية ↔ أفضل المنتجات في كوريا',fullRankings:'← عرض التصنيف الكامل',search:'بحث عن منتج/علامة (مثال: تونر، سيراميد...)',trends:'🔥 كلمات الاتجاه اليوم',matches:'🎯 مطابقة الاتجاه × المنتجات الشعبية',rising:'🚀 منتجات صاعدة',rankings:'🏆 أفضل المنتجات اليوم',google:'🌐 إشارات بحث الأسواق الغربية',score:'نقاط الاتجاه',noMatch:'لا توجد منتجات مطابقة.',noData:'لا توجد بيانات',loading:'جارٍ التحميل...',tL:'اتجاهات',cL:'منتجات',price:'آخر الأسعار',rank:'آخر التصنيفات',open:'↗ فتح صفحة المنتج',close:'إغلاق ✕',new:'جديد',fail:'فشل التحميل: '}
+};
+let LANG=localStorage.getItem('lang')||'ko';
+let HOME=null;
+const T=()=>I18N[LANG];
 
-function renderMatches(list){
-  const wrap=$('#matchWrap');wrap.innerHTML='';
-  if(!list.length){wrap.innerHTML='<div class="card"><p class="muted">매칭된 상품이 없습니다.</p></div>';return;}
-  list.forEach(m=>{
+function applyLang(){
+  const L=T();
+  document.documentElement.lang=LANG;
+  document.documentElement.dir=(LANG==='ar')?'rtl':'ltr';
+  $('#subtitle').textContent=L.subtitle;
+  $('#fullRank').textContent=L.fullRankings;
+  $('#searchInput').placeholder=L.search;
+  $('#hTrends').textContent=L.trends;
+  $('#hMatches').textContent=L.matches;
+  $('#hRising').textContent=L.rising;
+  $('#hRankings').textContent=L.rankings;
+  $('#hGoogle').textContent=L.google;
+  document.querySelectorAll('.lang').forEach(b=>b.classList.toggle('on',b.dataset.lang===LANG));
+  if(HOME)renderAll(HOME);
+}
+document.querySelectorAll('.lang').forEach(b=>b.onclick=()=>{LANG=b.dataset.lang;localStorage.setItem('lang',LANG);applyLang();});
+
+function renderAll(H){
+  const L=T();
+  $('#dateBadge').textContent=L.tL+' '+(H.updated_at.trends||'-')+' · '+L.cL+' '+(H.updated_at.catalog||'-');
+  $('#trendChips').innerHTML=H.top_trends.map(t=>'<span class="chip">'+esc(t.keyword)+'<span class="score">'+Math.round(t.score||0)+'</span></span>').join('');
+
+  const mw=$('#matchWrap');mw.innerHTML='';
+  if(!H.trend_product_matches.length){mw.innerHTML='<div class="card"><p class="muted">'+L.noMatch+'</p></div>';}
+  H.trend_product_matches.forEach(m=>{
     const card=document.createElement('div');card.className='card';
-    card.innerHTML='<div class="kw-head"><span class="kw-tag">#'+esc(m.keyword)+'</span><span class="muted">트렌드 점수 '+Math.round(m.score||0)+'</span></div>';
+    card.innerHTML='<div class="kw-head"><span class="kw-tag">#'+esc(m.keyword)+'</span><span class="muted">'+L.score+' '+Math.round(m.score||0)+'</span></div>';
     m.products.forEach(p=>{
       const row=document.createElement('div');row.className='row';
       row.innerHTML='<div class="info"><b>'+esc(p.product_name)+'</b><span class="muted">'+esc(p.brand||'')+' · '+esc(p.category||'')+'</span></div>';
       row.onclick=()=>openDetail(p.product_id);
       card.appendChild(row);
     });
-    wrap.appendChild(card);
+    mw.appendChild(card);
   });
-}
 
-function renderRising(list){
-  const wrap=$('#risingWrap');wrap.innerHTML='';
-  list.slice(0,10).forEach(it=>{
+  const rw=$('#risingWrap');rw.innerHTML='';
+  H.rising_products.slice(0,10).forEach(it=>{
     const row=document.createElement('div');row.className='row';
-    row.innerHTML='<span class="badge'+(it.direction==='new'?' new':'')+'">'+(it.direction==='new'?'NEW':'+'+it.rank_change)+'</span>'+
+    row.innerHTML='<span class="badge'+(it.direction==='new'?' new':'')+'">'+(it.direction==='new'?L.new:'+'+it.rank_change)+'</span>'+
       '<div class="info"><b>'+esc(it.product_name||it.product_id)+'</b><span class="muted">'+esc(it.brand||'')+'</span></div>'+
-      '<span class="muted">'+(it.previous_rank??'-')+' → '+it.current_rank+'위</span>';
+      '<span class="muted">'+(it.previous_rank??'-')+' → '+it.current_rank+'</span>';
     row.onclick=()=>openDetail(it.product_id);
-    wrap.appendChild(row);
+    rw.appendChild(row);
   });
-}
 
-function renderRankings(list){
-  const wrap=$('#rankWrap');wrap.innerHTML='';
-  list.forEach(it=>{
+  const kw=$('#rankWrap');kw.innerHTML='';
+  H.top_rankings.forEach(it=>{
     const row=document.createElement('div');row.className='row';
     row.innerHTML='<span class="rank">'+it.rank_num+'</span>'+
       '<div class="info"><b>'+esc(it.product_name||it.product_id)+'</b><span class="muted">'+esc(it.brand||'')+'</span></div>'+
       '<span class="price">'+fmtPrice(it.sale_price??it.price)+'</span>';
     row.onclick=()=>openDetail(it.product_id);
-    wrap.appendChild(row);
+    kw.appendChild(row);
   });
+
+  $('#googleWrap').innerHTML=H.google_signals.map(g=>'<span class="chip">'+esc(g.keyword)+'<span class="score">'+esc(g.region||'')+' ↑'+Math.round(g.rising_score||0)+'</span></span>').join('')||'<span class="muted">'+L.noData+'</span>';
 }
 
 async function openDetail(pid){
+  const L=T();
   try{
     const d=await api('/api/catalog/products/'+encodeURIComponent(pid));
     const p=d.product;
-    $('#sheet').innerHTML='<button class="closebtn" onclick="closeDetail()">✕ 닫기</button>'+
+    $('#sheet').innerHTML='<button class="closebtn" onclick="closeDetail()">'+L.close+'</button>'+
       '<h3 style="margin:6px 0">'+esc(p.product_name)+'</h3>'+
       '<p class="muted">'+esc(p.brand)+' · '+esc(p.source)+' · '+esc(p.category)+' · '+esc(p.status)+'</p>'+
-      '<p style="margin:10px 0"><a class="link" href="'+esc(p.product_url)+'" target="_blank">상품 페이지 열기 ↗</a></p>'+
-      '<h4 class="muted">최근 가격</h4><div>'+d.snapshots.slice(0,7).map(s=>'<span class="chip">'+s.snapshot_date+' '+fmtPrice(s.sale_price??s.price)+'</span>').join('')+'</div>'+
-      '<h4 class="muted">최근 랭킹</h4><div>'+d.rankings.slice(0,10).map(r=>'<span class="chip">'+r.ranking_date+' · '+esc(r.source)+' · '+r.rank_num+'위</span>').join('')+'</div>';
+      '<p style="margin:10px 0"><a class="link" href="'+esc(p.product_url)+'" target="_blank">'+L.open+'</a></p>'+
+      '<h4 class="muted">'+L.price+'</h4><div>'+d.snapshots.slice(0,7).map(s=>'<span class="chip">'+s.snapshot_date+' '+fmtPrice(s.sale_price??s.price)+'</span>').join('')+'</div>'+
+      '<h4 class="muted">'+L.rank+'</h4><div>'+d.rankings.slice(0,10).map(r=>'<span class="chip">'+r.ranking_date+' · '+esc(r.source)+' · '+r.rank_num+'</span>').join('')+'</div>';
     $('#overlay').classList.add('open');
-  }catch(e){alert('상세 조회 실패: '+e.message);}
+  }catch(e){alert(L.fail+e.message);}
 }
 function closeDetail(){$('#overlay').classList.remove('open');}
 $('#overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeDetail();});
@@ -156,7 +180,12 @@ $('#searchInput').addEventListener('input',e=>{
   },300);
 });
 
-init();
+(async()=>{
+  applyLang();
+  $('#dateBadge').textContent=T().loading;
+  try{HOME=await api('/api/app/home');renderAll(HOME);}
+  catch(e){$('#matchWrap').innerHTML='<div class="card"><p class="muted">'+T().fail+esc(e.message)+'</p></div>';}
+})();
 </script>
 </body>
 </html>
