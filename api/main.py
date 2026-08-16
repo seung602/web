@@ -10,7 +10,6 @@ from api.platforms import router as platforms_router
 from api.google import router as google_router
 from api.reports import router as reports_router
 from api.dashboard import router as dashboard_router
-from api.ksignal import router as ksignal_router
 from api.catalog import router as catalog_router   # 기존 import들 아래에 추가
 from api.app import router as app_router
 
@@ -32,7 +31,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(ksignal_router)
 app.include_router(trends_router)
 app.include_router(platforms_router)
 app.include_router(google_router)
