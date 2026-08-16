@@ -5,39 +5,28 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.trends import router as trends_router
-from api.platforms import router as platforms_router
-from api.google import router as google_router
-from api.reports import router as reports_router
-from api.dashboard import router as dashboard_router
-from api.catalog import router as catalog_router   # 기존 import들 아래에 추가
 from api.app import router as app_router
-
+from api.catalog import router as catalog_router
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
 
 app = FastAPI(
     title="K-Beauty Trend Intelligence",
-    description="Read-only dashboard — K-Signal ranking first, Western signals secondary",
-    version="2.0.0",
+    description="Unified K-Beauty trend + catalog API",
+    version="3.0.0",
 )
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(trends_router)
-app.include_router(platforms_router)
-app.include_router(google_router)
-app.include_router(reports_router)
-app.include_router(dashboard_router)
-app.include_router(catalog_router)                 # 다른 include_router 줄들 아래에 추가
 app.include_router(app_router)
+app.include_router(catalog_router)
 
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -48,11 +37,7 @@ def root():
     index = STATIC_DIR / "index.html"
     if index.exists():
         return FileResponse(index)
-    return {
-        "status": "ok",
-        "service": "K-Beauty Trend Intelligence",
-        "version": "2.0.0",
-    }
+    return {"status": "ok", "service": "K-Beauty Trend Intelligence"}
 
 
 @app.get("/health")
