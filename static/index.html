@@ -78,8 +78,7 @@ async function init(){
     renderMatches(H.trend_product_matches);
     renderRising(H.rising_products);
     renderRankings(H.top_rankings);
-    $('#googleWrap').innerHTML=H.google_signals.map(g=>'<span class="chip">'+esc(g.query||g.text||'')+'</span>').join('')||'<span class="muted">데이터 없음</span>';
-  }catch(e){
+    $('#googleWrap').innerHTML=H.google_signals.map(g=>'<span class="chip">'+esc(g.keyword)+'<span class="score">'+esc(g.region||'')+' ↑'+Math.round(g.rising_score||0)+'</span></span>').join('')||'<span class="muted">데이터 없음</span>';
     $('#matchWrap').innerHTML='<div class="card"><p class="muted">데이터 로드 실패: '+esc(e.message)+'</p></div>';
   }
 }
