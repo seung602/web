@@ -4,7 +4,6 @@ from api.database import get_trend_db, get_catalog_db
 
 router = APIRouter(prefix="/api/app", tags=["App"])
 
-# 트렌드 키워드 → 한국어 상품명 매칭 사전
 KEYWORD_MAP = {
     "retinol": ["레티놀"], "retinal": ["레티날", "레티놀"],
     "pdrn": ["pdrn", "피디알엔"], "ceramide": ["세라마이드"],
@@ -13,14 +12,16 @@ KEYWORD_MAP = {
     "cica": ["시카", "센텔라"], "propolis": ["프로폴리스"],
     "peptide": ["펩타이드"], "snail": ["달팽이", "스네일"],
     "azelaic": ["아젤라익"], "spicule": ["스피큘"], "ectoin": ["엑토인"],
-    "vitamin c": ["비타민"], "sunscreen": ["선크림", "선스크린", "선케어"],
-    "toner": ["토너"], "serum": ["세럼", "앰플"], "essence": ["에센스"],
-    "moisturizer": ["크림", "로션", "모이스처"], "cleanser": ["클렌징", "클렌저"],
-    "mask": ["마스크팩", "팩"], "brightening": ["화이트닝", "광채"],
-    "dark spot": ["잡티", "미백", "다크스팟"], "dark spots": ["잡티", "미백"],
+    "vitamin c": ["비타민"], "sunscreen": ["선림", "선스크린", "선케어"],
+    "sunstick": ["선스틱", "선크림"], "toner": ["토너"],
+    "serum": ["세럼", "앰플"], "essence": ["에센스"],
+    "moisturizer": ["크림", "로션", "모이스처"], "moisturiser": ["크림", "로션"],
+    "cleanser": ["클렌징", "클렌저"], "mask": ["마스크팩", "팩"],
+    "brightening": ["화이트닝", "광채"], "dark spot": ["잡티", "미백"],
     "hydration": ["수분", "히알루론"], "acne": ["트러블", "피지", "여드름"],
     "glass skin": ["광채", "글로우"], "glow": ["광채", "글로우"],
-    "anti-aging": ["주름", "탄력", "에이징"],
+    "anti-aging": ["주름", "탄력", "에이징"], "ampoule": ["앰플"],
+    "spf": ["선림", "선스틱", "선케어"], "barrier": ["장벽", "시카"],
 }
 
 
@@ -38,8 +39,6 @@ def _pick(cols, candidates):
             return c
     return None
 
-
-# ---------- 트렌드 DB ----------
 
 def _top_trends(conn, limit):
     cols = _cols(conn, "trend_scores")
@@ -73,8 +72,6 @@ def _google_signals(conn, limit):
         (limit,),
     )
 
-
-# ---------- 카탈로그 DB ----------
 
 def _top_rankings(conn, limit):
     latest = conn.execute("SELECT MAX(ranking_date) AS d FROM daily_rankings").fetchone()["d"]
@@ -138,7 +135,6 @@ def _rising_products(conn, limit):
 
 
 def _trend_product_matches(trends, conn, per=3):
-    """ 킬러 기능: 트렌드 키워드 → 실제 인기 상품 매칭"""
     matches = []
     for t in trends:
         kw = (t.get("keyword") or "").strip()
@@ -160,15 +156,9 @@ def _trend_product_matches(trends, conn, per=3):
             if len(products) >= per:
                 break
         if products:
-            matches.append({
-                "keyword": kw,
-                "score": t.get("score"),
-                "products": products[:per],
-            })
+            matches.append({"keyword": kw, "score": t.get("score"), "products": products[:per]})
     return matches
 
-
-# ---------- 통합 엔드포인트 ----------
 
 @router.get("/home")
 def app_home(
@@ -177,7 +167,6 @@ def app_home(
     rising_limit: int = Query(10, ge=1, le=50),
     google_limit: int = Query(10, ge=1, le=50),
 ):
-    """앱 메인 화면용 — 모든 데이터를 한 번에"""
     trend_conn = get_trend_db()
     try:
         try:
