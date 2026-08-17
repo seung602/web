@@ -183,7 +183,7 @@ def get_dashboard(period: str = Query("daily", enum=["daily", "weekly", "monthly
 
 @router.get("/keyword/{keyword}")
 def get_keyword_detail(keyword: str):
-    """키워드 클릭 시 매칭되는 전체 상품 목록 반환"""
+    """키워드 클릭 시 매칭되는 '전체' 상품 목록 반환 (개수 제한 없음)"""
     cat_conn = get_catalog_db()
     try:
         terms = _expand_keyword(keyword)
@@ -191,12 +191,12 @@ def get_keyword_detail(keyword: str):
         seen = set()
         
         for term in terms:
+            # 💡 여기서 LIMIT 20 구문을 완전히 제거했습니다!
             rows = _rows(cat_conn, """
                 SELECT product_id, product_name, brand, product_url, source, price, review_count
                 FROM products
                 WHERE LOWER(product_name) LIKE LOWER(?)
                 ORDER BY review_count DESC
-                LIMIT 20
             """, (f"%{term}%",))
             
             for r in rows:
@@ -205,6 +205,7 @@ def get_keyword_detail(keyword: str):
                     r["platform_badge"] = "🌿" if r["source"] == "oliveyoung" else "💸"
                     products.append(r)
                     
-        return {"keyword": keyword, "products": products[:30]}
+        # 💡 여기서는 [:30] 슬라이싱을 제거하여 찾은 상품을 모두 반환합니다.
+        return {"keyword": keyword, "products": products}
     finally:
         cat_conn.close()
