@@ -111,20 +111,20 @@
 
         const I18N = {
             ko: {title:'📊 종합', subtitle:'올리브영 · 다이소 뷰티 소싱 인사이트', pDaily:'일간 (Daily)', pWeekly:'주간 (Weekly)', pMonthly:'월간 (Monthly)', pAI:'✨ AI 트렌드 분석',
-                trends:'🔥 트렌드 키워드', highlights:'🛒 플랫폼별 하이라이트', oyCard:'🌿 올리브영 (순위 급등 · 신규)', dsCard:'💸 다이소 (리뷰 폭주 · 신상)',
-                rankings:'🏆 누적 킹', rOverall:'전체 랭킹', rOY:'올리브영', rDS:'다이소', hint:'상품을 누르면 짤막한 정보와 연동 사이트 링크가 열립니다.',
-                brand:'브랜드', price:'가격', reviews:'리뷰', growth:'증가', score:'점수', open:'상품 페이지 열기 ↗', searchDs:'🔍 다이소몰에서 검색',
-                evidence:'📎 분석 근거', loading:'불러오는 중...', noData:'데이터 없음', fail:'데이터 로드 실패', modalList:'매칭되는 전체 상품 목록', new:'NEW', steps:'계단', unit:'개'},
+                trends:'🔥 트렌드 키워드', highlights:'🛒 플랫폼별 하이라이트', oyCard:'🌿 올리브영 (순위 급등 · 신규)', dsCard:'💸 다이소 (인기 화장품)',
+                rankings:'🏆 누적 랭킹', rOverall:'전체 랭킹', rOY:'올리브영', rDS:'다이소', hint:'상품을 누르면 짤막한 정보와 연동 사이트 링크가 열립니다.',
+                brand:'브랜드', price:'가격', score:'점수', open:'상품 페이지 열기 ↗', searchDs:'🔍 다이소몰에서 검색',
+                evidence:'📎 분석 근거', loading:'불러오는 중...', noData:'데이터 없음', fail:'데이터 로드 실패', modalList:'매칭되는 전체 상품 목록 (인기순)', new:'NEW', steps:'계단'},
             en: {title:'📊 Overview', subtitle:'Olive Young · Daiso beauty sourcing insights', pDaily:'Daily', pWeekly:'Weekly', pMonthly:'Monthly', pAI:'✨ AI Trend Analysis',
-                trends:'🔥 Trend Keywords', highlights:'🛒 Platform Highlights', oyCard:'🌿 Olive Young (Rising · New)', dsCard:'💸 Daiso (Review Surge · New)',
+                trends:'🔥 Trend Keywords', highlights:'🛒 Platform Highlights', oyCard:'🌿 Olive Young (Rising · New)', dsCard:'💸 Daiso (Popular Cosmetics)',
                 rankings:'🏆 Cumulative Rankings', rOverall:'Overall', rOY:'Olive Young', rDS:'Daiso', hint:'Tap a product for brief info and source-site links.',
-                brand:'Brand', price:'Price', reviews:'Reviews', growth:'Growth', score:'Score', open:'Open product page ↗', searchDs:'🔍 Search on Daiso Mall',
-                evidence:'📎 Evidence', loading:'Loading...', noData:'No data', fail:'Load failed', modalList:'Full list of matched products', new:'NEW', steps:'steps', unit:''},
+                brand:'Brand', price:'Price', score:'Score', open:'Open product page ↗', searchDs:'🔍 Search on Daiso Mall',
+                evidence:'📎 Evidence', loading:'Loading...', noData:'No data', fail:'Load failed', modalList:'Full matched product list (by popularity)', new:'NEW', steps:'steps'},
             ar: {title:'📊 نظرة شاملة', subtitle:'تحليلات توريد منتجات الجمال من أوليف يونغ ودايسو', pDaily:'يومي', pWeekly:'أسبوعي', pMonthly:'شهري', pAI:'✨ تحليل الاتجاهات بالAI',
-                trends:'🔥 كلمات الاتجاه', highlights:'🛒 أبرز المنصات', oyCard:'🌿 أوليف يونغ (صاعد · جديد)', dsCard:'💸 دايسو (ارتفاع المراجعات · جديد)',
+                trends:'🔥 كلمات الاتجاه', highlights:'🛒 أبرز المنصات', oyCard:'🌿 أوليف يونغ (صاعد · جديد)', dsCard:'💸 دايسو (مستحضرات شائعة)',
                 rankings:'🏆 التصنيف التراكمي', rOverall:'الكل', rOY:'أوليف يونغ', rDS:'دايسو', hint:'اضغط على منتج لعرض معلومات موجزة وروابط الموقع.',
-                brand:'العلامة', price:'السعر', reviews:'المراجعات', growth:'النمو', score:'النقاط', open:'فتح صفحة المنتج ↗', searchDs:'🔍 بحث في دايسو',
-                evidence:'📎 أساس التحليل', loading:'جارٍ التحميل...', noData:'لا توجد بيانات', fail:'فشل التحميل', modalList:'القائمة الكاملة للمنتجات المطابقة', new:'جديد', steps:'مركز', unit:''}
+                brand:'العلامة', price:'السعر', score:'النقاط', open:'فتح صفحة المنتج ↗', searchDs:'🔍 بحث في دايسو',
+                evidence:'📎 أساس التحليل', loading:'جارٍ التحميل...', noData:'لا توجد بيانات', fail:'فشل التحميل', modalList:'القائمة الكاملة للمنتجات المطابقة (حسب الشعبية)', new:'جديد', steps:'مركز'}
         };
         const T = () => I18N[LANG] || I18N.ko;
 
@@ -168,7 +168,7 @@
                 `<span class="chip" onclick="openKeywordModal('${(t.keyword||'').replace(/'/g,"\\'")}')">${t.keyword}<span class="score">${Math.round(t.score || 0)}</span></span>`
             ).join('') || `<p class="muted">${L.noData}</p>`;
             $('#hlOliveyoung').innerHTML = (data.highlights.oliveyoung||[]).map(hlOY).join('') || `<p class="muted">${L.noData}</p>`;
-            $('#hlDaiso').innerHTML = (data.highlights.daiso||[]).map(hlDS).join('') || `<p class="muted">${L.noData}</p>`;
+            $('#hlDaiso').innerHTML = (data.highlights.daiso||[]).map((p,i)=>hlDS(p,i)).join('') || `<p class="muted">${L.noData}</p>`;
             window.__RANKINGS = data.rankings;
             renderRankings(data.rankings);
         }
@@ -182,11 +182,10 @@
                 <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand||''} · ${p.previous_rank ?? '-'} → ${p.current_rank}</span></div></div>`;
         }
 
-        function hlDS(p){
-            const L = T();
+        function hlDS(p, i){
             return `<div class="row" onclick="window.open('${p.product_url}','_blank')">
-                <span class="badge badge-ds">+${p.review_growth ?? 0}</span>
-                <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand||''} · ${L.reviews} ${p.review_count ?? 0}${L.unit}</span></div>
+                <span class="badge badge-ds">${i+1}위</span>
+                <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand||''} · ${fmtPrice(p.sale_price ?? p.price)}</span></div>
                 ${searchLink(p)}</div>`;
         }
 
@@ -205,8 +204,6 @@
                     <div class="detail-grid">
                         <span>${L.brand} ${p.brand || '-'}</span>
                         <span>${L.price} ${fmtPrice(p.sale_price ?? p.price) || '-'}</span>
-                        ${p.review_count != null ? `<span>${L.reviews} ${Number(p.review_count).toLocaleString()}${L.unit}</span>` : ''}
-                        ${p.review_growth != null ? `<span>${L.growth} +${p.review_growth}</span>` : ''}
                         ${p.score != null ? `<span>${L.score} ${p.score}</span>` : ''}
                     </div>
                     <div class="detail-actions">
@@ -225,7 +222,6 @@
             if (chev) chev.textContent = d.classList.contains('open') ? '▴' : '▾';
         }
 
-        // ===== AI 트렌드 분석 =====
         async function loadAI(){
             const L = T();
             $('#aiWrap').innerHTML = `<p class="muted">${L.loading}</p>`;
@@ -269,11 +265,11 @@
             try {
                 const res = await fetch(`/api/app/keyword/${encodeURIComponent(kw)}`);
                 const data = await res.json();
-                $('#modalProducts').innerHTML = data.products.map(p => `
+                $('#modalProducts').innerHTML = data.products.map((p, i) => `
                     <div class="row" onclick="window.open('${p.product_url}', '_blank')">
+                        <span class="rank-badge">${i + 1}</span>
                         <span class="badge ${p.platform_badge === '🌿' ? 'badge-oy' : 'badge-ds'}">${p.platform_badge}</span>
                         <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand || ''} · ${fmtPrice(p.price || p.sale_price)}</span></div>
-                        <span class="muted">${T().reviews} ${p.review_count || 0}</span>
                         ${searchLink(p)}
                     </div>
                 `).join('') || `<p class="muted">${T().noData}</p>`;
