@@ -179,16 +179,13 @@
                 ? `<span class="badge badge-oy">${L.new}</span>`
                 : `<span class="badge badge-oy">▲${p.rank_change}${L.steps}</span>`;
             return `<div class="row" onclick="window.open('${p.product_url}','_blank')">${badge}
-                <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand||''} · ${p.previous_rank ?? '-'} → ${p.current_rank}</span></div></div>`;
+                <div class="info"><b>${p.product_name}</b></div></div>`;
         }
 
-         function hlDS(p){
-            const L = T();
-            const badge = p.is_new
-                ? `<span class="badge badge-ds">🆕 ${L.new}</span>`
-                : `<span class="badge badge-ds">+${p.review_growth ?? 0}</span>`;
-            return `<div class="row" onclick="window.open('${p.product_url}','_blank')">${badge}
-                <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand||''} · ${L.reviews} ${p.review_count ?? 0}${L.unit}</span></div>
+        function hlDS(p, i){
+            return `<div class="row" onclick="window.open('${p.product_url}','_blank')">
+                <span class="badge badge-ds">${i+1}위</span>
+                <div class="info"><b>${p.product_name}</b></div>
                 ${searchLink(p)}</div>`;
         }
 
@@ -198,14 +195,14 @@
             $('#rankingsList').innerHTML = list.map((p, i) => `
                 <div class="row" onclick="toggleDetail(this)">
                     <span class="rank-badge">${i + 1}</span>
-                    <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand || ''}</span></div>
+                    <div class="info"><b>${p.product_name}</b><span class="muted">${(p.brand || '').replace(/<[^>]*>/g,'')}</span></div>
                     <span class="muted">${p.platform_badge || ''}</span>
                     <span class="muted">${fmtPrice(p.sale_price ?? p.price)}</span>
                     <span class="chev">▾</span>
                 </div>
                 <div class="detail">
                     <div class="detail-grid">
-                        <span>${L.brand} ${p.brand || '-'}</span>
+                        <span>${L.brand} ${(p.brand || '-').replace(/<[^>]*>/g,'')}</span>
                         <span>${L.price} ${fmtPrice(p.sale_price ?? p.price) || '-'}</span>
                         ${p.score != null ? `<span>${L.score} ${p.score}</span>` : ''}
                     </div>
@@ -272,7 +269,7 @@
                     <div class="row" onclick="window.open('${p.product_url}', '_blank')">
                         <span class="rank-badge">${i + 1}</span>
                         <span class="badge ${p.platform_badge === '🌿' ? 'badge-oy' : 'badge-ds'}">${p.platform_badge}</span>
-                        <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand || ''} · ${fmtPrice(p.price || p.sale_price)}</span></div>
+                        <div class="info"><b>${p.product_name}</b><span class="muted">${(p.brand || '').replace(/<[^>]*>/g,'')} · ${fmtPrice(p.price || p.sale_price)}</span></div>
                         ${searchLink(p)}
                     </div>
                 `).join('') || `<p class="muted">${T().noData}</p>`;
