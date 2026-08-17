@@ -109,4 +109,85 @@
                 `<span class="chip" onclick="openKeywordModal('${(t.keyword||'').replace(/'/g,"\\'")}')">${t.keyword}<span class="score">${Math.round(t.score || 0)}</span></span>`
             ).join('') || '<p class="muted">데이터 없음</p>';
 
-            $('#hlOliveyoung
+            $('#hlOliveyoung').innerHTML = (data.highlights.oliveyoung||[]).map(hlOY).join('') || '<p class="muted">데이터 없음</p>';
+            $('#hlDaiso').innerHTML = (data.highlights.daiso||[]).map(hlDS).join('') || '<p class="muted">데이터 없음</p>';
+
+            window.__RANKINGS = data.rankings;
+            renderRankings(data.rankings);
+        }
+
+        function hlOY(p){
+            const badge = (p.previous_rank == null)
+                ? '<span class="badge badge-oy">NEW</span>'
+                : `<span class="badge badge-oy">▲${p.rank_change}계단</span>`;
+            return `<div class="row" onclick="window.open('${p.product_url}','_blank')">${badge}
+                <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand||''} · ${p.previous_rank ?? '-'}위 → ${p.current_rank}위</span></div></div>`;
+        }
+
+        function hlDS(p){
+            return `<div class="row" onclick="window.open('${p.product_url}','_blank')">
+                <span class="badge badge-ds">리뷰 +${p.review_growth ?? 0}</span>
+                <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand||''} · 리뷰 ${p.review_count ?? 0}개</span></div>
+                ${searchLink(p)}</div>`;
+        }
+
+        function renderRankings(rankings) {
+            const list = rankings[currentRankTab] || [];
+            $('#rankingsList').innerHTML = list.map((p, i) => `
+                <div class="row" onclick="window.open('${p.product_url}','_blank')">
+                    <span class="rank-badge">${i + 1}</span>
+                    <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand || ''}</span></div>
+                    <span class="muted">${p.platform_badge || ''}</span>
+                    <span class="muted">${fmtPrice(p.price || p.sale_price)}</span>
+                    ${searchLink(p)}
+                </div>
+            `).join('') || '<p class="muted">랭킹 데이터가 없습니다.</p>';
+        }
+
+        async function openKeywordModal(kw) {
+            $('#modalTitle').textContent = `#${kw}`;
+            $('#modalProducts').innerHTML = '로딩 중...';
+            $('#keywordModal').classList.add('open');
+
+            try {
+                const res = await fetch(`/api/app/keyword/${encodeURIComponent(kw)}`);
+                const data = await res.json();
+                $('#modalProducts').innerHTML = data.products.map(p => `
+                    <div class="row" onclick="window.open('${p.product_url}', '_blank')">
+                        <span class="badge ${p.platform_badge === '🌿' ? 'badge-oy' : 'badge-ds'}">${p.platform_badge}</span>
+                        <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand || ''} · ${fmtPrice(p.price || p.sale_price)}</span></div>
+                        <span class="muted">리뷰 ${p.review_count || 0}</span>
+                        ${searchLink(p)}
+                    </div>
+                `).join('') || '<p class="muted">매칭되는 상품이 없습니다.</p>';
+            } catch (e) {
+                $('#modalProducts').innerHTML = '<p class="muted">데이터 로드 실패</p>';
+            }
+        }
+
+        function closeModal() {
+            $('#keywordModal').classList.remove('open');
+        }
+
+        document.querySelectorAll('.tab-btn[data-period]').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.tab-btn[data-period]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentPeriod = btn.dataset.period;
+                fetchDashboard(currentPeriod);
+            };
+        });
+
+        document.querySelectorAll('.tab-btn[data-rank]').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.tab-btn[data-rank]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentRankTab = btn.dataset.rank;
+                if (window.__RANKINGS) renderRankings(window.__RANKINGS);
+            };
+        });
+
+        fetchDashboard(currentPeriod);
+    </script>
+</body>
+</html>
