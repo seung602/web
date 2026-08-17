@@ -12,21 +12,25 @@ from api.database import get_trend_db, get_catalog_db
 router = APIRouter(prefix="/api/app", tags=["App"])
 
 # ============================================================
-# 다이소 URL 재조립
+# 다이소 URL 재조립 (실제 다이소몰 주소 = PDR, 검색은 구글 사이트검색)
 # ============================================================
-# ============================================================
-# 다이소 URL 재조립 (DB에 옛 URL이 저장돼 있어도 항상 올바른 링크 제공)
-# ============================================================
-DAISO_PDP = "https://www.daisomall.co.kr/pd/pdr/SCR_PDR_0001?pdNo={}"          # ← PDR로 수정!
-DAISO_SEARCH = "https://www.google.com/search?q=site:daisomall.co.kr+"         # ← 구글 사이트검색으로!
+DAISO_PDP = "https://www.daisomall.co.kr/pd/pdr/SCR_PDR_0001?pdNo={}"
+DAISO_SEARCH = "https://www.google.com/search?q=site:daisomall.co.kr+"
 
 def _fix_daiso(row):
-    """다이소 상품 행의 URL을 product_id 기반으로 재조립 + 검색 링크 추가"""
     pid = row.get("product_id") or ""
     if pid.startswith("DS_"):
         row["product_url"] = DAISO_PDP.format(pid[3:])
-    row["search_url"] = DAISO_SEARCH + quote(row.get("product_name") or "")    # ← 이 줄 수정
+    row["search_url"] = DAISO_SEARCH + quote(row.get("product_name") or "")
     return row
+
+# ============================================================
+# 다이소 화장품 집중 필터 (면봉·네일·소품 등 기타용품 제외)
+# ============================================================
+DAISO_COSMETIC_CATEGORIES = [
+    "스킨케어", "마스크팩", "클렌징", "선케어",
+    "메이크업", "맨즈케어", "향수",
+]
 
 # ============================================================
 # Gemini 한-영 매핑 자동화
@@ -229,37 +233,77 @@ def _oy_highlights(conn, period, limit=5):
         logging.warning(f"oy_highlights failed: {e}")
         return []
 
+# ---------- 다이소: 리뷰 증가량 기반 (화장품 카테고리만) ----------
 def _daiso_by_reviews(conn, period, limit=30):
     try:
         latest, past = _catalog_range(conn, period)
         if not latest:
             return []
+        ph = ",".join("?" for _ in DAISO_COSMETIC_CATEGORIES)
+        cats = list(DAISO_COSMETIC_CATEGORIES)
         if "review_count" not in _cols(conn, "product_snapshots"):
-            rows = _rows(conn, """
+            rows = _rows(conn, f"""
                 SELECT p.product_id, p.product_name, p.brand, p.product_url,
                        s2.price AS price, s2.sale_price AS sale_price,
-                       0 AS review_growth, NULL AS review_count
+                       0 AS review_growth, NULL AS review_count, 0 AS is_new
                 FROM products p
                 JOIN product_snapshots s2 ON s2.product_id = p.product_id AND s2.snapshot_date = ?
-                WHERE LOWER(p.source) = 'daiso'
+                WHERE LOWER(p.source) = 'daiso' AND p.category IN ({ph})
                 ORDER BY p.last_catalog_seen_at DESC LIMIT ?
-            """, (latest, limit))
+            """, (latest, *cats, limit))
         else:
-            rows = _rows(conn, """
+            rows = _rows(conn, f"""
                 SELECT p.product_id, p.product_name, p.brand, p.product_url,
                        s2.price AS price, s2.sale_price AS sale_price,
                        s2.review_count AS review_count,
-                       (COALESCE(s2.review_count,0) - COALESCE(s1.review_count,0)) AS review_growth
+                       (COALESCE(s2.review_count,0) - COALESCE(s1.review_count,0)) AS review_growth,
+                       COALESCE(p.is_new, 0) AS is_new
                 FROM products p
                 JOIN product_snapshots s2 ON s2.product_id = p.product_id AND s2.snapshot_date = ?
                 LEFT JOIN product_snapshots s1 ON s1.product_id = p.product_id AND s1.snapshot_date = ?
-                WHERE LOWER(p.source) = 'daiso'
+                WHERE LOWER(p.source) = 'daiso' AND p.category IN ({ph})
                 ORDER BY review_growth DESC, review_count DESC LIMIT ?
-            """, (latest, past, limit))
+            """, (latest, past, *cats, limit))
         return [_fix_daiso(r) for r in rows]
     except Exception as e:
         logging.warning(f"daiso_by_reviews failed: {e}")
         return []
+
+# ---------- 다이소 신상 (is_new 플래그 기반) ----------
+def _daiso_new_arrivals(conn, limit=10):
+    try:
+        if "is_new" not in _cols(conn, "products"):
+            return []
+        ph = ",".join("?" for _ in DAISO_COSMETIC_CATEGORIES)
+        rows = _rows(conn, f"""
+            SELECT p.product_id, p.product_name, p.brand, p.product_url,
+                   (SELECT s.price FROM product_snapshots s WHERE s.product_id = p.product_id
+                    ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS price,
+                   (SELECT s.sale_price FROM product_snapshots s WHERE s.product_id = p.product_id
+                    ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS sale_price,
+                   (SELECT s.review_count FROM product_snapshots s WHERE s.product_id = p.product_id
+                    ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS review_count,
+                   0 AS review_growth, 1 AS is_new
+            FROM products p
+            WHERE LOWER(p.source) = 'daiso' AND p.is_new = 1 AND p.category IN ({ph})
+            ORDER BY p.last_catalog_seen_at DESC LIMIT ?
+        """, (*DAISO_COSMETIC_CATEGORIES, limit))
+        return [_fix_daiso(r) for r in rows]
+    except Exception as e:
+        logging.warning(f"daiso_new_arrivals failed: {e}")
+        return []
+
+# ---------- 다이소 하이라이트 = 리뷰폭주 + 신상 혼합 ----------
+def _daiso_highlights(conn, period, limit=5):
+    growth = _daiso_by_reviews(conn, period, limit)
+    new = _daiso_new_arrivals(conn, limit)
+    seen = {r["product_id"] for r in growth}
+    merged = list(growth)
+    for r in new:
+        if r["product_id"] not in seen:
+            seen.add(r["product_id"])
+            merged.append(r)
+    return merged[:limit]
 
 def _oy_rankings(conn, period, limit=30):
     try:
@@ -299,7 +343,7 @@ def _overall(oy, ds):
     return out
 
 # ============================================================
-# AI 트렌드 분석 (기간별 요약 + 근거)
+# AI 트렌드 분석
 # ============================================================
 AI_CACHE_PATH = Path("/tmp/ai_analysis_cache.db")
 AI_TTL_HOURS = 6
@@ -354,7 +398,6 @@ def _gather_ai_context(tconn, cconn):
     return ctx
 
 def _fallback_analysis(ctx, lang):
-    """Gemini가 없으면 데이터 기반으로 간단 요약 생성"""
     L = {
         "ko": {"kw": "주요 키워드", "oy": "올리브영 강세", "ds": "다이소 리뷰 상승", "rise": "순위 급등"},
         "en": {"kw": "Top keywords", "oy": "Olive Young strong", "ds": "Daiso review surge", "rise": "Rank risers"},
@@ -380,8 +423,7 @@ def _ask_gemini_analysis(ctx, lang_name):
     prompt = (
         "You are a K-beauty market analyst advising a reseller of Korean cosmetics in the Netherlands.\n"
         "Using ONLY the data provided, write a short actionable analysis for each period (daily, weekly, monthly).\n"
-        'For each period provide: "summary" (2-3 sentences: what is trending, what to consider stocking) and '
-        '"evidence" (2-4 bullet strings citing concrete data points: keyword/product names, numbers).\n'
+        'For each period provide: "summary" (2-3 sentences) and "evidence" (2-4 bullet strings citing concrete data points).\n'
         f"Write everything in {lang_name}. Return ONLY valid JSON in this shape:\n{shape}\n\n"
         f"DATA:\n{json.dumps(ctx, ensure_ascii=False)}"
     )
@@ -434,7 +476,7 @@ def get_dashboard(period: str = Query("daily")):
             "trends": get_trends(tconn, period),
             "highlights": {
                 "oliveyoung": _oy_highlights(cconn, period, 5),
-                "daiso": _daiso_by_reviews(cconn, period, 5),
+                "daiso": _daiso_highlights(cconn, period, 5),
             },
             "rankings": {"oliveyoung": oy, "daiso": ds, "overall": _overall(oy, ds)},
         }
@@ -442,6 +484,7 @@ def get_dashboard(period: str = Query("daily")):
         tconn.close()
         cconn.close()
 
+@router.get("/keyword/{keyword}")
 @router.get("/keyword/{keyword}")
 def get_keyword_detail(keyword: str):
     conn = get_catalog_db()
@@ -451,7 +494,9 @@ def get_keyword_detail(keyword: str):
         extra = """, (SELECT s.price FROM product_snapshots s WHERE s.product_id = products.product_id
                       ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS price,
                      (SELECT s.sale_price FROM product_snapshots s WHERE s.product_id = products.product_id
-                      ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS sale_price"""
+                      ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS sale_price,
+                     (SELECT r.rank_num FROM daily_rankings r WHERE r.product_id = products.product_id
+                      ORDER BY r.ranking_date DESC LIMIT 1) AS latest_rank"""
         if has_review:
             extra += """, (SELECT s.review_count FROM product_snapshots s WHERE s.product_id = products.product_id
                            ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS review_count"""
@@ -461,13 +506,25 @@ def get_keyword_detail(keyword: str):
                 SELECT product_id, source, brand, product_name, product_url, category {extra}
                 FROM products WHERE LOWER(product_name) LIKE LOWER(?)
             """, (f"%{term}%",)):
+                # 다이소 기타용품(면봉·네일 등) 제외
+                if (r.get("source") or "").lower() == "daiso" \
+                        and (r.get("category") or "") not in DAISO_COSMETIC_CATEGORIES:
+                    continue
                 if r["product_id"] not in seen:
                     seen.add(r["product_id"])
                     r["platform_badge"] = "🌿" if (r.get("source") or "").lower() == "oliveyoung" else "💸"
                     if (r.get("product_id") or "").startswith("DS_"):
                         _fix_daiso(r)
                     products.append(r)
-        products.sort(key=lambda x: x.get("review_count") or 0, reverse=True)
+
+        # 자체 인기점수: 올리브영 최신 랭킹 + 다이소 리뷰 수(존재 시에만)
+        def _pop(p):
+            score = 0
+            if p.get("latest_rank"):
+                score += 100000 - int(p["latest_rank"]) * 10
+            score += min(p.get("review_count") or 0, 99999)
+            return score
+        products.sort(key=_pop, reverse=True)
         return {"keyword": keyword, "count": len(products), "products": products}
     finally:
         conn.close()
