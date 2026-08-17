@@ -427,7 +427,7 @@ def _ask_gemini_analysis(ctx, lang_name):
         "(e.g. 'Sunscreen (선크림)', 'واقي الشمس (선크림)').\n"
         "Using ONLY the data provided, write a short actionable analysis for each period (daily, weekly, monthly).\n"
         'For each period provide: "summary" (2-3 sentences: what is trending, what to consider stocking) and '
-        '"evidence" (2-4 bullet strings citing concrete data points: keyword/product names, numbers).\n"
+        "\"evidence\" (2-4 bullet strings citing concrete data points: keyword/product names, numbers).\n"
         f"Return ONLY valid JSON in this shape:\n{shape}\n\n"
         f"DATA:\n{json.dumps(ctx, ensure_ascii=False)}"
     )
