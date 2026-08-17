@@ -51,6 +51,15 @@
         .modal.open { display: flex; }
         .modal-content { background: var(--card); border-radius: 16px; max-width: 600px; width: 100%; max-height: 80vh; overflow-y: auto; padding: 20px; }
         .close-btn { float: right; background: var(--card2); border: none; color: var(--text); padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+        
+        /* 검색창 스타일 추가 */
+        .search-box { display: flex; gap: 8px; margin-bottom: 20px; }
+        .search-box input { flex: 1; background: var(--card); border: 1px solid #2a3560; color: var(--text); padding: 14px 18px; border-radius: 12px; font-size: 15px; outline: none; transition: border 0.2s; }
+        .search-box input:focus { border-color: var(--accent); }
+        .search-box button { background: var(--accent); border: none; color: #fff; padding: 0 20px; border-radius: 12px; font-size: 18px; cursor: pointer; }
+        .load-more-btn { display: block; width: 100%; padding: 14px; background: var(--card2); border: 1px solid #2a3560; color: var(--accent); font-weight: bold; border-radius: 12px; margin-top: 12px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+        .load-more-btn:hover { background: var(--accent); color: #fff; }
+        .clear-btn { display: block; width: 100%; padding: 12px; background: transparent; border: 1px solid #2a3560; color: var(--muted); font-weight: bold; border-radius: 12px; margin-top: 8px; cursor: pointer; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -64,14 +73,30 @@
         <p class="muted" id="subtitle"></p>
     </div>
 
-    <div class="tabs">
-        <button class="tab-btn active" data-period="daily" id="tabDaily"></button>
-        <button class="tab-btn" data-period="weekly" id="tabWeekly"></button>
-        <button class="tab-btn" data-period="monthly" id="tabMonthly"></button>
-        <button class="tab-btn" data-period="ai" id="tabAI"></button>
+    <!-- 검색창 UI -->
+    <div class="search-box">
+        <input type="text" id="searchInput" onkeyup="if(event.key==='Enter')performSearch(true)" />
+        <button id="searchBtn" onclick="performSearch(true)">🔍</button>
     </div>
 
+    <!-- 검색 결과 섹션 (초기 숨김) -->
+    <div id="searchSection" style="display:none;">
+        <h2 id="hSearch"></h2>
+        <p class="hint" id="searchMeta"></p>
+        <div class="card" id="searchList" style="padding:0;"></div>
+        <button id="loadMoreBtn" class="load-more-btn" onclick="performSearch(false)"></button>
+        <button class="clear-btn" onclick="clearSearch()">✕ <span id="clearText"></span></button>
+    </div>
+
+    <!-- 기존 대시보드 섹션 -->
     <div id="listSections">
+        <div class="tabs">
+            <button class="tab-btn active" data-period="daily" id="tabDaily"></button>
+            <button class="tab-btn" data-period="weekly" id="tabWeekly"></button>
+            <button class="tab-btn" data-period="monthly" id="tabMonthly"></button>
+            <button class="tab-btn" data-period="ai" id="tabAI"></button>
+        </div>
+
         <h2 id="hTrends"></h2>
         <div class="chips" id="trendChips"></div>
 
@@ -88,7 +113,7 @@
             <button class="tab-btn" data-rank="daiso" id="rankDS"></button>
         </div>
         <p class="hint" id="hintRank"></p>
-        <div class="card" id="rankingsList"></div>
+        <div class="card" id="rankingsList" style="padding:0;"></div>
     </div>
 
     <div id="aiSection" style="display:none"><div id="aiWrap"></div></div>
@@ -109,22 +134,29 @@
         let currentRankTab = 'overall';
         let LANG = localStorage.getItem('lang') || 'ko';
 
+        // 검색 관련 변수
+        let searchPage = 1;
+        let searchQuery = '';
+
         const I18N = {
             ko: {title:'📊 종합', subtitle:'올리브영 · 다이소 뷰티 소싱 인사이트', pDaily:'일간 (Daily)', pWeekly:'주간 (Weekly)', pMonthly:'월간 (Monthly)', pAI:'✨ AI 트렌드 분석',
                 trends:'🔥 트렌드 키워드', highlights:'🛒 플랫폼별 하이라이트', oyCard:'🌿 올리브영 (순위 급등 · 신규)', dsCard:'💸 다이소 (인기 화장품)',
                 rankings:'🏆 누적 랭킹', rOverall:'전체 랭킹', rOY:'올리브영', rDS:'다이소', hint:'상품을 누르면 짤막한 정보와 연동 사이트 링크가 열립니다.',
                 brand:'브랜드', price:'가격', score:'점수', open:'상품 페이지 열기 ↗', searchDs:'🔍 다이소몰에서 검색',
-                evidence:'📎 분석 근거', loading:'불러오는 중...', noData:'데이터 없음', fail:'데이터 로드 실패', modalList:'매칭되는 전체 상품 목록 (인기순)', new:'NEW', steps:'계단'},
+                evidence:'📎 분석 근거', loading:'불러오는 중...', noData:'데이터 없음', fail:'데이터 로드 실패', modalList:'매칭되는 전체 상품 목록 (인기순)', new:'NEW', steps:'계단',
+                searchPlace:'검색 (예: sunstick, 나이아신아마이드, 썬스틱)', searchRes:'🔍 검색 결과', loadMore:'더보기 (Load More)', noRes:'검색 결과가 없습니다.', clear:'검색 지우고 대시보드로 돌아가기'},
             en: {title:'📊 Overview', subtitle:'Olive Young · Daiso beauty sourcing insights', pDaily:'Daily', pWeekly:'Weekly', pMonthly:'Monthly', pAI:'✨ AI Trend Analysis',
                 trends:'🔥 Trend Keywords', highlights:'🛒 Platform Highlights', oyCard:'🌿 Olive Young (Rising · New)', dsCard:'💸 Daiso (Popular Cosmetics)',
                 rankings:'🏆 Cumulative Rankings', rOverall:'Overall', rOY:'Olive Young', rDS:'Daiso', hint:'Tap a product for brief info and source-site links.',
                 brand:'Brand', price:'Price', score:'Score', open:'Open product page ↗', searchDs:'🔍 Search on Daiso Mall',
-                evidence:'📎 Evidence', loading:'Loading...', noData:'No data', fail:'Load failed', modalList:'Full matched product list (by popularity)', new:'NEW', steps:'steps'},
+                evidence:'📎 Evidence', loading:'Loading...', noData:'No data', fail:'Load failed', modalList:'Full matched product list (by popularity)', new:'NEW', steps:'steps',
+                searchPlace:'Search (e.g., sunstick, Niacinamide)', searchRes:'🔍 Search Results', loadMore:'Load More', noRes:'No results found.', clear:'Clear search and return to dashboard'},
             ar: {title:'📊 نظرة شاملة', subtitle:'تحليلات توريد منتجات الجمال من أوليف يونغ ودايسو', pDaily:'يومي', pWeekly:'أسبوعي', pMonthly:'شهري', pAI:'✨ تحليل الاتجاهات بالAI',
                 trends:'🔥 كلمات الاتجاه', highlights:'🛒 أبرز المنصات', oyCard:'🌿 أوليف يونغ (صاعد · جديد)', dsCard:'💸 دايسو (مستحضرات شائعة)',
                 rankings:'🏆 التصنيف التراكمي', rOverall:'الكل', rOY:'أوليف يونغ', rDS:'دايسو', hint:'اضغط على منتج لعرض معلومات موجزة وروابط الموقع.',
                 brand:'العلامة', price:'السعر', score:'النقاط', open:'فتح صفحة المنتج ↗', searchDs:'🔍 بحث في دايسو',
-                evidence:'📎 أساس التحليل', loading:'جارٍ التحميل...', noData:'لا توجد بيانات', fail:'فشل التحميل', modalList:'القائمة الكاملة للمنتجات المطابقة (حسب الشعبية)', new:'جديد', steps:'مركز'}
+                evidence:'📎 أساس التحليل', loading:'جارٍ التحميل...', noData:'لا توجد بيانات', fail:'فشل التحميل', modalList:'القائمة الكاملة للمنتجات المطابقة (حسب الشعبية)', new:'جديد', steps:'مركز',
+                searchPlace:'بحث (مثل sunstick، النياسيناميد)', searchRes:'🔍 نتائج البحث', loadMore:'تحميل المزيد', noRes:'لا توجد نتائج.', clear:'مسح البحث والعودة'}
         };
         const T = () => I18N[LANG] || I18N.ko;
 
@@ -140,6 +172,8 @@
             $('#hRankings').textContent = L.rankings; $('#rankOverall').textContent = L.rOverall;
             $('#rankOY').textContent = L.rOY; $('#rankDS').textContent = L.rDS;
             $('#hintRank').textContent = L.hint; $('#modalSub').textContent = L.modalList;
+            $('#searchInput').placeholder = L.searchPlace; $('#hSearch').textContent = L.searchRes;
+            $('#loadMoreBtn').textContent = L.loadMore; $('#clearText').textContent = L.clear;
             document.querySelectorAll('.lang').forEach(b => b.classList.toggle('on', b.dataset.lang === LANG));
         }
 
@@ -149,6 +183,90 @@
             else if (window.__DATA) renderDashboard(window.__DATA);
         });
 
+        // ============================================================
+        // 검색 로직
+        // ============================================================
+        async function performSearch(reset = true) {
+            const input = $('#searchInput').value.trim();
+            if (!input) { clearSearch(); return; }
+
+            if (reset) {
+                searchPage = 1;
+                searchQuery = input;
+                $('#searchList').innerHTML = `<p class="muted" style="padding:16px">${T().loading}</p>`;
+                $('#loadMoreBtn').style.display = 'none';
+                $('#listSections').style.display = 'none';
+                $('#searchSection').style.display = 'block';
+            }
+
+            try {
+                const res = await fetch(`/api/app/search?q=${encodeURIComponent(searchQuery)}&page=${searchPage}`);
+                const data = await res.json();
+                renderSearchResults(data, reset);
+            } catch (e) {
+                console.error(e);
+                if (reset) $('#searchList').innerHTML = `<p class="muted" style="padding:16px">${T().fail}</p>`;
+            }
+        }
+
+        function renderSearchResults(data, reset) {
+            const L = T();
+            const list = data.products || [];
+            
+            if (reset) {
+                const countStr = data.total_count > 0 ? `${data.total_count} ${L.searchRes}` : L.noRes;
+                $('#searchMeta').innerHTML = `${countStr} <span class="muted">(${data.keywords.join(', ')})</span>`;
+            }
+
+            const html = list.map((p, i) => {
+                const globalIndex = (searchPage - 1) * data.limit + i + 1;
+                return `
+                    <div class="row" onclick="toggleDetail(this)">
+                        <span class="rank-badge">${globalIndex}</span>
+                        <div class="info">
+                            <b>${p.product_name}</b>
+                            <span class="muted">${(p.brand || '').replace(/<[^>]*>/g,'')}</span>
+                        </div>
+                        <span class="muted">${p.platform_badge || ''}</span>
+                        <span class="muted">${fmtPrice(p.sale_price ?? p.price)}</span>
+                        <span class="chev">▾</span>
+                    </div>
+                    <div class="detail">
+                        <div class="detail-grid">
+                            <span>${L.brand} ${(p.brand || '-').replace(/<[^>]*>/g,'')}</span>
+                            <span>${L.price} ${fmtPrice(p.sale_price ?? p.price) || '-'}</span>
+                            ${p.latest_rank ? `<span>Rank ${p.latest_rank}</span>` : ''}
+                        </div>
+                        <div class="detail-actions">
+                            <a href="${p.product_url}" target="_blank">${L.open}</a>
+                            ${p.search_url ? `<a class="secondary" href="${p.search_url}" target="_blank">${L.searchDs}</a>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            if (reset) {
+                $('#searchList').innerHTML = html || `<p class="muted" style="padding:16px">${L.noRes}</p>`;
+            } else {
+                $('#searchList').insertAdjacentHTML('beforeend', html);
+            }
+
+            if (data.has_more) {
+                $('#loadMoreBtn').style.display = 'block';
+            } else {
+                $('#loadMoreBtn').style.display = 'none';
+            }
+        }
+
+        function clearSearch() {
+            $('#searchInput').value = '';
+            $('#searchSection').style.display = 'none';
+            $('#listSections').style.display = 'block';
+        }
+
+        // ============================================================
+        // 기존 대시보드 로직
+        // ============================================================
         function searchLink(p){
             if(!p.search_url) return '';
             return `<a class="search-link" href="${p.search_url}" target="_blank" onclick="event.stopPropagation()">🔍</a>`;
@@ -211,7 +329,7 @@
                         ${p.search_url ? `<a class="secondary" href="${p.search_url}" target="_blank">${L.searchDs}</a>` : ''}
                     </div>
                 </div>
-            `).join('') || `<p class="muted">${L.noData}</p>`;
+            `).join('') || `<p class="muted" style="padding:16px">${L.noData}</p>`;
         }
 
         function toggleDetail(rowEl) {
@@ -249,9 +367,11 @@
             currentPeriod = p;
             if (p === 'ai') {
                 $('#listSections').style.display = 'none';
+                $('#searchSection').style.display = 'none';
                 $('#aiSection').style.display = 'block';
                 await loadAI();
             } else {
+                $('#searchSection').style.display = 'none';
                 $('#listSections').style.display = 'block';
                 $('#aiSection').style.display = 'none';
                 fetchDashboard(p);
