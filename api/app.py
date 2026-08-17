@@ -1,4 +1,4 @@
-"""앱 전용 통합 API — 트렌드 + 카탈로그 + Gemini 한영 매핑 + AI 분석"""
+"""앱 전용 통합 API — 트렌드 + 카탈로그 + Gemini 한영 매핑 + AI 분석 + 검색"""
 import json
 import logging
 import os
@@ -60,7 +60,7 @@ INGREDIENT_MAP = {
     "ampoule": ["앰플"], "moisturiser": ["크림", "로션", "모이스처", "보습"],
     "moisturizer": ["크림", "로션", "모이스처", "보습"],
     "sunscreen": ["선크림", "선스크린", "선케어", "자외선차단"],
-    "sunstick": ["선스틱", "선팩", "선케어", "자외선차단"],
+    "sunstick": ["선스틱", "선팩", "선케어", "자외선차단", "스틱선크림"],
     "spf": ["선크림", "선스크린", "자외선차단", "선크림"],
     "barrier": ["장벽", "피부장벽", "배리어"], "glow": ["광채", "글로우", "광"],
     "hydration": ["수분", "보습", "히알루론"], "brightening": ["화이트닝", "미백", "광채", "밝은"],
@@ -477,7 +477,99 @@ def ai_analysis(lang: str = Query("ko")):
     return {"lang": lang, "source": source, "analysis": analysis}
 
 # ============================================================
-# 엔드포인트
+# 검색 엔드포인트 (다국어/성분/카테고리 검색 + 인기순 정렬 + 페이지네이션)
+# ============================================================
+@router.get("/search")
+def search_products(
+    q: str = Query(..., description="Search query (e.g., sunstick, Niacinamide, 썬스틱)"),
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(20, ge=1, le=100, description="Items per page")
+):
+    """
+    다국어 검색어(성분, 카테고리, 상품명)를 받아 자체 인기 랭킹순으로 정렬된 상품을 페이지네이션하여 반환합니다.
+    """
+    if not q.strip():
+        return {"keywords": [], "query": "", "products": [], "has_more": False, "total_count": 0}
+
+    # 1. 키워드 확장 (다국어 -> 한국어 동의어/성분명 매핑)
+    terms = _expand_keyword(q)
+    
+    conn = get_catalog_db()
+    try:
+        # 서브쿼리: 최신 가격 및 랭킹, 리뷰수 가져오기
+        extra = """, (SELECT s.price FROM product_snapshots s WHERE s.product_id = products.product_id
+                      ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS price,
+                     (SELECT s.sale_price FROM product_snapshots s WHERE s.product_id = products.product_id
+                      ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS sale_price,
+                     (SELECT r.rank_num FROM daily_rankings r WHERE r.product_id = products.product_id
+                      ORDER BY r.ranking_date DESC LIMIT 1) AS latest_rank"""
+        
+        has_review = "review_count" in _cols(conn, "product_snapshots")
+        if has_review:
+            extra += """, (SELECT s.review_count FROM product_snapshots s WHERE s.product_id = products.product_id
+                           ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS review_count"""
+
+        products, seen = [], set()
+        
+        # 2. 동적 WHERE 절 생성 (상품명, 브랜드, 카테고리 검색)
+        conditions = []
+        params = []
+        for term in terms:
+            # 사용자가 원하신 성분/카테고리/상품명 검색을 위해 brand와 category도 LIKE 조건에 추가
+            conditions.append("(LOWER(product_name) LIKE LOWER(?) OR LOWER(brand) LIKE LOWER(?) OR LOWER(category) LIKE LOWER(?))")
+            params.extend([f"%{term}%", f"%{term}%", f"%{term}%"])
+            
+        where_clause = " OR ".join(conditions)
+        
+        sql = f"""
+            SELECT product_id, source, brand, product_name, product_url, category {extra}
+            FROM products WHERE {where_clause}
+        """
+        
+        # 3. 데이터 필터링 (다이소 기타용품 제외)
+        for r in _rows(conn, sql, params):
+            if (r.get("source") or "").lower() == "daiso" \
+                    and (r.get("category") or "") not in DAISO_COSMETIC_CATEGORIES:
+                continue
+            if r["product_id"] not in seen:
+                seen.add(r["product_id"])
+                r["platform_badge"] = "🌿" if (r.get("source") or "").lower() == "oliveyoung" else "💸"
+                if (r.get("product_id") or "").startswith("DS_"):
+                    _fix_daiso(r)
+                products.append(r)
+
+        # 4. 자체 인기점수(_pop) 기반 정렬
+        def _pop(p):
+            score = 0
+            if p.get("latest_rank"):
+                score += 100000 - int(p["latest_rank"]) * 10
+            score += min(p.get("review_count") or 0, 99999)
+            return score
+            
+        products.sort(key=_pop, reverse=True)
+        
+        # 5. 페이지네이션 적용 (더보기 버튼용)
+        total_count = len(products)
+        start_idx = (page - 1) * limit
+        end_idx = start_idx + limit
+        
+        paginated_products = products[start_idx:end_idx]
+        has_more = total_count > end_idx
+
+        return {
+            "keywords": terms,
+            "query": q,
+            "total_count": total_count,
+            "page": page,
+            "limit": limit,
+            "has_more": has_more,
+            "products": paginated_products
+        }
+    finally:
+        conn.close()
+
+# ============================================================
+# 기존 엔드포인트
 # ============================================================
 @router.get("/dashboard")
 def get_dashboard(period: str = Query("daily")):
