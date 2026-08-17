@@ -14,14 +14,18 @@ router = APIRouter(prefix="/api/app", tags=["App"])
 # ============================================================
 # 다이소 URL 재조립
 # ============================================================
-DAISO_PDP = "https://www.daisomall.co.kr/pd/pdp/SCR_PDP_0001?pdNo={}"
-DAISO_SEARCH = "https://www.daisomall.co.kr/ssn/search/SearchGoods?searchTerm={}"
+# ============================================================
+# 다이소 URL 재조립 (DB에 옛 URL이 저장돼 있어도 항상 올바른 링크 제공)
+# ============================================================
+DAISO_PDP = "https://www.daisomall.co.kr/pd/pdr/SCR_PDR_0001?pdNo={}"          # ← PDR로 수정!
+DAISO_SEARCH = "https://www.google.com/search?q=site:daisomall.co.kr+"         # ← 구글 사이트검색으로!
 
 def _fix_daiso(row):
+    """다이소 상품 행의 URL을 product_id 기반으로 재조립 + 검색 링크 추가"""
     pid = row.get("product_id") or ""
     if pid.startswith("DS_"):
         row["product_url"] = DAISO_PDP.format(pid[3:])
-    row["search_url"] = DAISO_SEARCH.format(quote(row.get("product_name") or ""))
+    row["search_url"] = DAISO_SEARCH + quote(row.get("product_name") or "")    # ← 이 줄 수정
     return row
 
 # ============================================================
