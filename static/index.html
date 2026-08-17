@@ -114,38 +114,39 @@
         }
 
         function renderDashboard(data) {
-            // 트렌드 키워드
-            $('#trendChips').innerHTML = data.trends.map(t => 
-                `<span class="chip" onclick="openKeywordModal('${t.keyword}')">${t.keyword}<span class="score">${Math.round(t.score || 0)}</span></span>`
-            ).join('');
+            $('#trendChips').innerHTML = (data.trends||[]).map(t =>
+                `<span class="chip" onclick="openKeywordModal('${(t.keyword||'').replace(/'/g,"\\'")}')">${t.keyword}<span class="score">${Math.round(t.score || 0)}</span></span>`
+            ).join('') || '<p class="muted">데이터 없음</p>';
 
-            // 하이라이트
-            $('#hlOliveyoung').innerHTML = data.highlights.oliveyoung.map(p => renderRow(p, 'oy')).join('') || '<p class="muted">데이터 없음</p>';
-            $('#hlDaiso').innerHTML = data.highlights.daiso.map(p => renderRow(p, 'ds')).join('') || '<p class="muted">데이터 없음</p>';
+            $('#hlOliveyoung').innerHTML = (data.highlights.oliveyoung||[]).map(hlOY).join('') || '<p class="muted">데이터 없음</p>';
+            $('#hlDaiso').innerHTML = (data.highlights.daiso||[]).map(hlDS).join('') || '<p class="muted">데이터 없음</p>';
 
-            // 랭킹
+            window.__RANKINGS = data.rankings;
             renderRankings(data.rankings);
         }
 
-        function renderRow(p, type) {
-            const badge = type === 'oy' ? '<span class="badge badge-oy">🌿 올영</span>' : '<span class="badge badge-ds">💸 다이소</span>';
-            return `
-                <div class="row" onclick="window.open('${p.product_url}', '_blank')">
-                    <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand || ''}</span></div>
-                    ${badge}
-                    <span class="muted">${fmtPrice(p.price)}</span>
-                </div>
-            `;
+        function hlOY(p){
+            const badge = (p.previous_rank == null)
+                ? '<span class="badge badge-oy">NEW</span>'
+                : `<span class="badge badge-oy">▲${p.rank_change}계단</span>`;
+            return `<div class="row" onclick="window.open('${p.product_url}','_blank')">${badge}
+                <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand||''} · ${p.previous_rank ?? '-'}위 → ${p.current_rank}위</span></div></div>`;
+        }
+
+        function hlDS(p){
+            return `<div class="row" onclick="window.open('${p.product_url}','_blank')">
+                <span class="badge badge-ds">리뷰 +${p.review_growth ?? 0}</span>
+                <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand||''} · 리뷰 ${p.review_count ?? 0}개</span></div></div>`;
         }
 
         function renderRankings(rankings) {
             const list = rankings[currentRankTab] || [];
             $('#rankingsList').innerHTML = list.map((p, i) => `
-                <div class="row">
+                <div class="row" onclick="window.open('${p.product_url}','_blank')">
                     <span class="rank-badge">${i + 1}</span>
                     <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand || ''}</span></div>
                     <span class="muted">${p.platform_badge || ''}</span>
-                    <span class="muted">${fmtPrice(p.price)}</span>
+                    <span class="muted">${fmtPrice(p.price || p.sale_price)}</span>
                 </div>
             `).join('') || '<p class="muted">랭킹 데이터가 없습니다.</p>';
         }
@@ -161,7 +162,7 @@
                 $('#modalProducts').innerHTML = data.products.map(p => `
                     <div class="row" onclick="window.open('${p.product_url}', '_blank')">
                         <span class="badge ${p.platform_badge === '🌿' ? 'badge-oy' : 'badge-ds'}">${p.platform_badge}</span>
-                        <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand || ''} · ${fmtPrice(p.price)}</span></div>
+                        <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand || ''} · ${fmtPrice(p.price || p.sale_price)}</span></div>
                         <span class="muted">리뷰 ${p.review_count || 0}</span>
                     </div>
                 `).join('') || '<p class="muted">매칭되는 상품이 없습니다.</p>';
@@ -189,9 +190,7 @@
                 document.querySelectorAll('.tab-btn[data-rank]').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 currentRankTab = btn.dataset.rank;
-                // 랭킹 데이터는 이미 로드되어 있으므로 UI만 재렌더링하려면 전역 변수 활용 필요
-                // 여기서는 단순화를 위해 대시보드 전체 다시 로드
-                fetchDashboard(currentPeriod); 
+                if (window.__RANKINGS) renderRankings(window.__RANKINGS);
             };
         });
 
