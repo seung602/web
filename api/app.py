@@ -254,14 +254,36 @@ def _top_trends(conn, limit):
 
 
 def _google_signals(conn, limit):
-    return _rows(
-        conn,
-        """SELECT signal_date, platform, query, tag, region, text
-           FROM raw_signals
-           WHERE LOWER(platform) LIKE 'google%'
-           ORDER BY id DESC LIMIT ?""",
-        (limit,),
-    )
+    """구글 자동완성 신호 — google_signals 테이블"""
+    try:
+        items = _rows(
+            conn,
+            """SELECT signal_date, region, seed_keyword, keyword, query_type,
+                      intent, interest_score, rising_score, source
+               FROM google_signals
+               ORDER BY id DESC LIMIT ?""",
+            (limit,),
+        )
+        if items:
+            return items
+    except Exception as e:
+        logging.warning(f"google_signals query failed: {e}")
+    
+    # 폴백: google_signals가 비면 raw_signals에서 구글 시도
+    try:
+        return _rows(
+            conn,
+            """SELECT signal_date, region, query AS seed_keyword,
+                      substr(text, 1, 60) AS keyword, platform AS query_type,
+                      '' AS intent, NULL AS interest_score, NULL AS rising_score,
+                      platform AS source
+               FROM raw_signals
+               WHERE LOWER(platform) LIKE 'google%'
+               ORDER BY id DESC LIMIT ?""",
+            (limit,),
+        )
+    except Exception:
+        return []
 
 
 def _top_rankings(conn, limit):
