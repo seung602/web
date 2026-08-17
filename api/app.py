@@ -1,4 +1,4 @@
-"""앱 전용 통합 API — 트렌드 + 카탈로그 + Gemini 한영 매칭"""
+"""앱 전용 통합 API — 트렌드 + 카탈로그 + Gemini 한영 매핑 + AI 분석"""
 import json
 import logging
 import os
@@ -12,13 +12,12 @@ from api.database import get_trend_db, get_catalog_db
 router = APIRouter(prefix="/api/app", tags=["App"])
 
 # ============================================================
-# 다이소 URL 재조립 (DB에 옛 URL이 저장돼 있어도 항상 올바른 링크 제공)
+# 다이소 URL 재조립
 # ============================================================
 DAISO_PDP = "https://www.daisomall.co.kr/pd/pdp/SCR_PDP_0001?pdNo={}"
 DAISO_SEARCH = "https://www.daisomall.co.kr/ssn/search/SearchGoods?searchTerm={}"
 
 def _fix_daiso(row):
-    """다이소 상품 행의 URL을 product_id 기반으로 재조립 + 검색 링크 추가"""
     pid = row.get("product_id") or ""
     if pid.startswith("DS_"):
         row["product_url"] = DAISO_PDP.format(pid[3:])
@@ -32,67 +31,32 @@ MAPPING_CACHE_PATH = Path("/tmp/mapping_cache.db")
 MAPPING_TTL_DAYS = 7
 
 INGREDIENT_MAP = {
-    "ceramide": ["세라마이드"],
-    "retinol": ["레티놀", "레티날"],
-    "retinal": ["레티날"],
-    "niacinamide": ["나이아신아마이드", "나이아신"],
-    "hyaluronic": ["히알루론", "히아루론"],
-    "hyaluronic acid": ["히알루론산", "히알루론"],
-    "pdrn": ["피디알엔", "pdrn", "연어"],
-    "azelaic": ["아젤라익"],
-    "azelaic acid": ["아젤라익"],
-    "panthenol": ["판테놀"],
-    "centella": ["센텔라", "병풀", "시카"],
-    "cica": ["시카", "센텔라", "병풀"],
-    "propolis": ["프로폴리스"],
-    "peptide": ["펩타이드"],
-    "snail": ["달팽이", "스네일"],
-    "snail mucin": ["달팽이점액", "달팽이", "스네일"],
-    "collagen": ["콜라겐"],
-    "vitamin c": ["비타민", "비타"],
-    "ectoin": ["엑토인"],
-    "spicule": ["스피큘"],
-    "madecassoside": ["마데카소사이드"],
-    "asiaticoside": ["아시아티코사이드"],
-    "glutathione": ["글루타치온"],
-    "tranexamic": ["트라넥삼"],
-    "adenosine": ["아데노신"],
-    "squalane": ["스쿠알란"],
-    "bakuchiol": ["바쿠치올"],
-    "salicylic": ["살리실", "bha"],
-    "glycolic": ["글리콜", "aha"],
-    "beta-glucan": ["베글루칸"],
-    "heartleaf": ["어성초"],
-    "mugwort": ["쑥"],
-    "tea tree": ["티트리"],
-    "aloe": ["알로에"],
-    "ginseng": ["인삼", "홍삼"],
-    "green tea": ["녹차"],
-    "rice": ["쌀", "미", "라이스"],
-    "bamboo": ["대나무"],
-    "betaine": ["베타인"],
-    "allantoin": ["알란토인"],
-    "zinc": ["징크", "아연"],
-    "ampoule": ["앰플"],
-    "moisturiser": ["크림", "로션", "모이스처", "보습"],
+    "ceramide": ["세라마이드"], "retinol": ["레티놀", "레티날"], "retinal": ["레티날"],
+    "niacinamide": ["나이아신아마이드", "나이아신"], "hyaluronic": ["히알루론", "히아루론"],
+    "hyaluronic acid": ["히알루론산", "히알루론"], "pdrn": ["피디알엔", "pdrn", "연어"],
+    "azelaic": ["아젤라익"], "azelaic acid": ["아젤라익"], "panthenol": ["판테놀"],
+    "centella": ["센텔라", "병풀", "시카"], "cica": ["시카", "센텔라", "병풀"],
+    "propolis": ["프로폴리스"], "peptide": ["펩타이드"], "snail": ["달팽이", "스네일"],
+    "snail mucin": ["달팽이점액", "달팽이", "스네일"], "collagen": ["콜라겐"],
+    "vitamin c": ["비타민", "비타"], "ectoin": ["엑토인"], "spicule": ["스피큘"],
+    "madecassoside": ["마데카소사이드"], "asiaticoside": ["아시아티코사이드"],
+    "glutathione": ["글루타치온"], "tranexamic": ["트라넥삼"], "adenosine": ["아데노신"],
+    "squalane": ["스쿠알란"], "bakuchiol": ["바쿠치올"], "salicylic": ["살리실", "bha"],
+    "glycolic": ["글리콜", "aha"], "beta-glucan": ["베글루칸"], "heartleaf": ["어성초"],
+    "mugwort": ["쑥"], "tea tree": ["티트리"], "aloe": ["알로에"], "ginseng": ["인삼", "홍삼"],
+    "green tea": ["녹차"], "rice": ["쌀", "미", "라이스"], "bamboo": ["대나무"],
+    "betaine": ["베타인"], "allantoin": ["알란토인"], "zinc": ["징크", "아연"],
+    "ampoule": ["앰플"], "moisturiser": ["크림", "로션", "모이스처", "보습"],
     "moisturizer": ["크림", "로션", "모이스처", "보습"],
-    "sunscreen": ["선림", "선스크린", "선케어", "자외선차단"],
+    "sunscreen": ["선크림", "선스크린", "선케어", "자외선차단"],
     "sunstick": ["선스틱", "선팩", "선케어", "자외선차단"],
     "spf": ["선크림", "선스크린", "자외선차단", "선크림"],
-    "barrier": ["장벽", "피부장벽", "배리어"],
-    "glow": ["광채", "글로우", "광"],
-    "hydration": ["수분", "보습", "히알루론"],
-    "brightening": ["화이트닝", "미백", "광채", "밝은"],
-    "dark spot": ["잡티", "미백", "다크스팟"],
-    "dark spots": ["잡티", "미백", "다크스팟"],
-    "acne": ["트러블", "피지", "여드름"],
-    "glass skin": ["광채", "글로우", "유리광", "광"],
-    "anti-aging": ["주름", "탄력", "에이징"],
-    "toner": ["토너"],
-    "serum": ["세럼", "앰플"],
-    "essence": ["에센스"],
-    "cleanser": ["클렌징", "클렌저"],
-    "mask": ["마스크팩", "팩"],
+    "barrier": ["장벽", "피부장벽", "배리어"], "glow": ["광채", "글로우", "광"],
+    "hydration": ["수분", "보습", "히알루론"], "brightening": ["화이트닝", "미백", "광채", "밝은"],
+    "dark spot": ["잡티", "미백", "다크스팟"], "dark spots": ["잡티", "미백", "다크스팟"],
+    "acne": ["트러블", "피지", "여드름"], "glass skin": ["광채", "글로우", "유리광", "광"],
+    "anti-aging": ["주름", "탄력", "에이징"], "toner": ["토너"], "serum": ["세럼", "앰플"],
+    "essence": ["에센스"], "cleanser": ["클렌징", "클렌저"], "mask": ["마스크팩", "팩"],
 }
 
 _genai_client = None
@@ -107,7 +71,7 @@ def _get_genai():
         if not api_key:
             return None
         genai.configure(api_key=api_key)
-        _genai_client = genai.GenerativeModel("gemini-1.5-flash")
+        _genai_client = genai.GenerativeModel("gemini-3.7-flash")
         return _genai_client
     except Exception as e:
         logging.warning(f"GenAI init failed: {e}")
@@ -118,9 +82,7 @@ def _init_cache_db():
     conn = sqlite3.connect(MAPPING_CACHE_PATH)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS mapping_cache (
-            keyword TEXT PRIMARY KEY,
-            terms TEXT,
-            cached_at TEXT
+            keyword TEXT PRIMARY KEY, terms TEXT, cached_at TEXT
         )
     """)
     conn.commit()
@@ -131,15 +93,11 @@ def _get_cached(keyword: str):
         return None
     conn = sqlite3.connect(MAPPING_CACHE_PATH)
     try:
-        row = conn.execute(
-            "SELECT terms, cached_at FROM mapping_cache WHERE keyword = ?",
-            (keyword.lower(),)
-        ).fetchone()
+        row = conn.execute("SELECT terms, cached_at FROM mapping_cache WHERE keyword = ?", (keyword.lower(),)).fetchone()
         if not row:
             return None
         terms_json, cached_at_str = row
-        cached_at = datetime.fromisoformat(cached_at_str)
-        if datetime.now() - cached_at > timedelta(days=MAPPING_TTL_DAYS):
+        if datetime.now() - datetime.fromisoformat(cached_at_str) > timedelta(days=MAPPING_TTL_DAYS):
             return None
         return json.loads(terms_json)
     finally:
@@ -148,11 +106,8 @@ def _get_cached(keyword: str):
 def _set_cached(keyword: str, terms: list):
     conn = sqlite3.connect(MAPPING_CACHE_PATH)
     try:
-        conn.execute(
-            "INSERT OR REPLACE INTO mapping_cache (keyword, terms, cached_at) VALUES (?, ?, ?)",
-            (keyword.lower(), json.dumps(terms, ensure_ascii=False),
-             datetime.now().isoformat())
-        )
+        conn.execute("INSERT OR REPLACE INTO mapping_cache (keyword, terms, cached_at) VALUES (?, ?, ?)",
+                     (keyword.lower(), json.dumps(terms, ensure_ascii=False), datetime.now().isoformat()))
         conn.commit()
     finally:
         conn.close()
@@ -163,19 +118,11 @@ def _ask_gemini(keyword: str):
         return None
     prompt = f"""You are a K-beauty expert. For the Korean cosmetics trend keyword '{keyword}',
 list 3-6 Korean expressions that would appear in Korean product names (상품명).
-Examples:
-- retinol → ["레티놀", "레티날", "비타A", "안티에이징"]
-- ceramide → ["세라마이드"]
-- glass skin → ["광채", "글로우", "유리광"]
-- sunscreen → ["선림", "선스크린", "선케어", "자외선차단"]
-- sunstick → ["선스틱", "선크림", "선팩", "UV차단"]
 Return ONLY a JSON array of Korean strings, nothing else. No markdown, no explanation.
 Keyword: '{keyword}'
 Output:"""
     try:
-        resp = client.generate_content(
-            prompt, generation_config={"temperature": 0.3}
-        )
+        resp = client.generate_content(prompt, generation_config={"temperature": 0.3})
         text = resp.text.strip()
         if text.startswith("```"):
             text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
@@ -231,10 +178,7 @@ def _ranking_range(conn, period):
         return None, None
     d = _parse(latest) or datetime.now().date()
     cutoff = (d - timedelta(days=_PERIOD_DAYS[period])).isoformat()
-    prev = conn.execute(
-        "SELECT MAX(ranking_date) AS d FROM daily_rankings WHERE ranking_date <= ?",
-        (cutoff,),
-    ).fetchone()["d"]
+    prev = conn.execute("SELECT MAX(ranking_date) AS d FROM daily_rankings WHERE ranking_date <= ?", (cutoff,)).fetchone()["d"]
     return latest, prev
 
 def get_trends(conn, period, limit=15):
@@ -351,6 +295,124 @@ def _overall(oy, ds):
     return out
 
 # ============================================================
+# AI 트렌드 분석 (기간별 요약 + 근거)
+# ============================================================
+AI_CACHE_PATH = Path("/tmp/ai_analysis_cache.db")
+AI_TTL_HOURS = 6
+_LANG_NAMES = {"ko": "Korean", "en": "English", "ar": "Arabic"}
+
+def _init_ai_cache():
+    conn = sqlite3.connect(AI_CACHE_PATH)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS ai_cache (
+            cache_key TEXT PRIMARY KEY, payload TEXT, cached_at TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def _ai_cache_get(key):
+    if not AI_CACHE_PATH.exists():
+        return None
+    conn = sqlite3.connect(AI_CACHE_PATH)
+    try:
+        row = conn.execute("SELECT payload, cached_at FROM ai_cache WHERE cache_key=?", (key,)).fetchone()
+        if not row:
+            return None
+        if datetime.now() - datetime.fromisoformat(row[1]) > timedelta(hours=AI_TTL_HOURS):
+            return None
+        return json.loads(row[0])
+    finally:
+        conn.close()
+
+def _ai_cache_set(key, payload):
+    conn = sqlite3.connect(AI_CACHE_PATH)
+    try:
+        conn.execute("INSERT OR REPLACE INTO ai_cache (cache_key, payload, cached_at) VALUES (?,?,?)",
+                     (key, json.dumps(payload, ensure_ascii=False), datetime.now().isoformat()))
+        conn.commit()
+    finally:
+        conn.close()
+
+def _gather_ai_context(tconn, cconn):
+    ctx = {}
+    for period in ("daily", "weekly", "monthly"):
+        trends = get_trends(tconn, period, 8)
+        oy = _oy_rankings(cconn, period, 5)
+        ds = _daiso_by_reviews(cconn, period, 5)
+        hl = _oy_highlights(cconn, period, 3)
+        ctx[period] = {
+            "top_keywords": [t.get("keyword") for t in trends],
+            "oliveyoung_top": [f"{p.get('product_name')}({p.get('brand') or ''})" for p in oy],
+            "daiso_top": [f"{p.get('product_name')} / 리뷰증가 +{p.get('review_growth') or 0}" for p in ds],
+            "rank_rising": [f"{h.get('product_name')} (+{h.get('rank_change')})" for h in hl],
+        }
+    return ctx
+
+def _fallback_analysis(ctx, lang):
+    """Gemini가 없으면 데이터 기반으로 간단 요약 생성"""
+    L = {
+        "ko": {"kw": "주요 키워드", "oy": "올리브영 강세", "ds": "다이소 리뷰 상승", "rise": "순위 급등"},
+        "en": {"kw": "Top keywords", "oy": "Olive Young strong", "ds": "Daiso review surge", "rise": "Rank risers"},
+        "ar": {"kw": "كلمات رئيسية", "oy": "قوي في أوليف يونغ", "ds": "ارتفاع مراجعات دايسو", "rise": "صاعدو التصنيف"},
+    }.get(lang, {"kw": "Top keywords", "oy": "Olive Young strong", "ds": "Daiso review surge", "rise": "Rank risers"})
+    out = {}
+    for period, c in ctx.items():
+        kw = ", ".join(filter(None, c["top_keywords"][:5])) or "-"
+        oy = ", ".join(filter(None, c["oliveyoung_top"][:3])) or "-"
+        ds = ", ".join(filter(None, c["daiso_top"][:3])) or "-"
+        rise = ", ".join(filter(None, c["rank_rising"][:3])) or "-"
+        out[period] = {
+            "summary": f"{L['kw']}: {kw} | {L['oy']}: {oy} | {L['ds']}: {ds}",
+            "evidence": [f"{L['kw']}: {kw}", f"{L['oy']}: {oy}", f"{L['ds']}: {ds}", f"{L['rise']}: {rise}"],
+        }
+    return out
+
+def _ask_gemini_analysis(ctx, lang_name):
+    client = _get_genai()
+    if client is None:
+        return None
+    shape = '{"daily":{"summary":"...","evidence":["..."]},"weekly":{"summary":"...","evidence":["..."]},"monthly":{"summary":"...","evidence":["..."]}}'
+    prompt = (
+        "You are a K-beauty market analyst advising a reseller of Korean cosmetics in the Netherlands.\n"
+        "Using ONLY the data provided, write a short actionable analysis for each period (daily, weekly, monthly).\n"
+        'For each period provide: "summary" (2-3 sentences: what is trending, what to consider stocking) and '
+        '"evidence" (2-4 bullet strings citing concrete data points: keyword/product names, numbers).\n'
+        f"Write everything in {lang_name}. Return ONLY valid JSON in this shape:\n{shape}\n\n"
+        f"DATA:\n{json.dumps(ctx, ensure_ascii=False)}"
+    )
+    try:
+        resp = client.generate_content(prompt, generation_config={"temperature": 0.3})
+        text = resp.text.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        data = json.loads(text)
+        if all(k in data for k in ("daily", "weekly", "monthly")):
+            return data
+    except Exception as e:
+        logging.warning(f"AI analysis failed: {e}")
+    return None
+
+@router.get("/ai")
+def ai_analysis(lang: str = Query("ko")):
+    if lang not in _LANG_NAMES:
+        lang = "ko"
+    _init_ai_cache()
+    key = f"{lang}_{datetime.now().strftime('%Y-%m-%d')}"
+    cached = _ai_cache_get(key)
+    if cached:
+        return {"lang": lang, "source": "cache", "analysis": cached}
+    tconn, cconn = get_trend_db(), get_catalog_db()
+    try:
+        ctx = _gather_ai_context(tconn, cconn)
+    finally:
+        tconn.close()
+        cconn.close()
+    analysis = _ask_gemini_analysis(ctx, _LANG_NAMES[lang]) or _fallback_analysis(ctx, lang)
+    _ai_cache_set(key, analysis)
+    return {"lang": lang, "source": "gemini", "analysis": analysis}
+
+# ============================================================
 # 엔드포인트
 # ============================================================
 @router.get("/dashboard")
@@ -369,4 +431,39 @@ def get_dashboard(period: str = Query("daily")):
             "highlights": {
                 "oliveyoung": _oy_highlights(cconn, period, 5),
                 "daiso": _daiso_by_reviews(cconn, period, 5),
-           
+            },
+            "rankings": {"oliveyoung": oy, "daiso": ds, "overall": _overall(oy, ds)},
+        }
+    finally:
+        tconn.close()
+        cconn.close()
+
+@router.get("/keyword/{keyword}")
+def get_keyword_detail(keyword: str):
+    conn = get_catalog_db()
+    try:
+        terms = _expand_keyword(keyword)
+        has_review = "review_count" in _cols(conn, "product_snapshots")
+        extra = """, (SELECT s.price FROM product_snapshots s WHERE s.product_id = products.product_id
+                      ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS price,
+                     (SELECT s.sale_price FROM product_snapshots s WHERE s.product_id = products.product_id
+                      ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS sale_price"""
+        if has_review:
+            extra += """, (SELECT s.review_count FROM product_snapshots s WHERE s.product_id = products.product_id
+                           ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS review_count"""
+        products, seen = [], set()
+        for term in terms:
+            for r in _rows(conn, f"""
+                SELECT product_id, source, brand, product_name, product_url, category {extra}
+                FROM products WHERE LOWER(product_name) LIKE LOWER(?)
+            """, (f"%{term}%",)):
+                if r["product_id"] not in seen:
+                    seen.add(r["product_id"])
+                    r["platform_badge"] = "🌿" if (r.get("source") or "").lower() == "oliveyoung" else "💸"
+                    if (r.get("product_id") or "").startswith("DS_"):
+                        _fix_daiso(r)
+                    products.append(r)
+        products.sort(key=lambda x: x.get("review_count") or 0, reverse=True)
+        return {"keyword": keyword, "count": len(products), "products": products}
+    finally:
+        conn.close()
