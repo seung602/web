@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+import re
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -22,6 +23,8 @@ def _fix_daiso(row):
     if pid.startswith("DS_"):
         row["product_url"] = DAISO_PDP.format(pid[3:])
     row["search_url"] = DAISO_SEARCH + quote(row.get("product_name") or "")
+    if row.get("brand"):
+        row["brand"] = re.sub(r"<[^>]*>", "", row["brand"]).strip()
     return row
 
 # ============================================================
@@ -343,9 +346,6 @@ def _overall(oy, ds):
     return out
 
 # ============================================================
-# AI 트렌드 분석
-# ============================================================
-# ============================================================
 # AI 트렌드 분석 (기간별 요약 + 근거, 다국어 지원)
 # ============================================================
 AI_CACHE_PATH = Path("/tmp/ai_analysis_cache.db")
@@ -453,11 +453,11 @@ def ai_analysis(lang: str = Query("ko")):
     if lang not in _LANG_NAMES:
         lang = "ko"
     _init_ai_cache()
-    # v2 접두어: 기존 한국어 캐시와 충돌하지 않도록 무효화
-    key = f"v2_{lang}_{datetime.now().strftime('%Y-%m-%d')}"
+    # v3: 옛 캐시(폴백 포함) 완전 무효화
+    key = f"v3_{lang}_{datetime.now().strftime('%Y-%m-%d')}"
     cached = _ai_cache_get(key)
     if cached:
-        return {"lang": lang, "source": "cache", "analysis": cached}
+        return {"lang": lang, "source": cached.get("source"), "analysis": cached.get("analysis")}
     tconn, cconn = get_trend_db(), get_catalog_db()
     try:
         ctx = _gather_ai_context(tconn, cconn)
@@ -469,7 +469,9 @@ def ai_analysis(lang: str = Query("ko")):
     if analysis is None:
         analysis = _fallback_analysis(ctx, lang)
         source = "auto"
-    _ai_cache_set(key, analysis)
+    # Gemini 성공분만 캐시 → 폴백은 다음 요청에서 재시도
+    if source == "gemini":
+        _ai_cache_set(key, {"source": source, "analysis": analysis})
     return {"lang": lang, "source": source, "analysis": analysis}
 
 # ============================================================
@@ -498,7 +500,6 @@ def get_dashboard(period: str = Query("daily")):
         tconn.close()
         cconn.close()
 
-@router.get("/keyword/{keyword}")
 @router.get("/keyword/{keyword}")
 def get_keyword_detail(keyword: str):
     conn = get_catalog_db()
