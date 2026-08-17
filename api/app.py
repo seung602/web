@@ -600,3 +600,20 @@ def get_keyword_detail(keyword: str):
         return {"keyword": keyword, "count": len(products), "products": products}
     finally:
         conn.close()
+# ============================================================
+# 오늘의 변동 내역 (가격 변동 / 신상품 / 리뷰 급증)
+# ============================================================
+@router.get("/changes")
+def get_changes(date: str = Query(None), limit: int = Query(50, ge=1, le=200)):
+    conn = get_catalog_db()
+    try:
+        d = date or datetime.now().strftime("%Y-%m-%d")
+        rows = _rows(conn, """
+            SELECT product_id, event_type, old_value, new_value, detail
+            FROM product_events
+            WHERE event_date = ?
+            ORDER BY id DESC LIMIT ?
+        """, (d, limit))
+        return {"date": d, "count": len(rows), "events": rows}
+    finally:
+        conn.close()
