@@ -182,10 +182,13 @@
                 <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand||''} · ${p.previous_rank ?? '-'} → ${p.current_rank}</span></div></div>`;
         }
 
-        function hlDS(p, i){
-            return `<div class="row" onclick="window.open('${p.product_url}','_blank')">
-                <span class="badge badge-ds">${i+1}위</span>
-                <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand||''} · ${fmtPrice(p.sale_price ?? p.price)}</span></div>
+         function hlDS(p){
+            const L = T();
+            const badge = p.is_new
+                ? `<span class="badge badge-ds">🆕 ${L.new}</span>`
+                : `<span class="badge badge-ds">+${p.review_growth ?? 0}</span>`;
+            return `<div class="row" onclick="window.open('${p.product_url}','_blank')">${badge}
+                <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand||''} · ${L.reviews} ${p.review_count ?? 0}${L.unit}</span></div>
                 ${searchLink(p)}</div>`;
         }
 
