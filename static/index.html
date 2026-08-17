@@ -3,17 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>일일 랭킹 - K-Beauty 소싱 가이드</title>
+    <title>종합 - K-Beauty 소싱 가이드</title>
     <style>
         :root { --bg: #0b1020; --card: #161d36; --card2: #1e2749; --text: #eef1ff; --muted: #8f97bd; --accent: #7c5cff; --green: #3ddc97; --yellow: #ffd166; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; padding: 16px; max-width: 900px; margin: 0 auto; }
-        .hero { background: linear-gradient(135deg, #1b2340, #2a1b4d); border-radius: 20px; padding: 24px; margin-bottom: 20px; }
+        .hero { position: relative; background: linear-gradient(135deg, #1b2340, #2a1b4d); border-radius: 20px; padding: 24px; margin-bottom: 20px; }
         h1 { font-size: 24px; margin-bottom: 8px; }
         h2 { font-size: 18px; margin: 24px 0 12px; }
         .muted { color: var(--muted); font-size: 12px; }
+        .hint { color: var(--muted); font-size: 11px; margin: -8px 0 10px; }
         .card { background: var(--card); border-radius: 16px; padding: 16px; margin-bottom: 16px; }
-        .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid #2a3560; padding-bottom: 12px; }
+        .langs { position: absolute; top: 16px; inset-inline-end: 16px; display: flex; gap: 6px; }
+        .lang { background: var(--card2); border: 1px solid #2a3560; color: var(--muted); border-radius: 8px; padding: 4px 9px; font-size: 11px; cursor: pointer; }
+        .lang.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid #2a3560; padding-bottom: 12px; flex-wrap: wrap; }
         .tab-btn { background: var(--card); border: 1px solid #2a3560; color: var(--muted); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
         .chips { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -33,6 +37,16 @@
         .badge-oy { background: #e0f7e9; color: #04291a; }
         .badge-ds { background: #ffe0b2; color: #3e2723; }
         .search-link { text-decoration: none; font-size: 14px; }
+        .chev { color: var(--muted); font-size: 12px; }
+        .detail { display: none; margin: -4px 0 10px 40px; background: var(--card2); border-radius: 10px; padding: 12px; }
+        .detail.open { display: block; }
+        .detail-grid { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+        .detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .detail-actions a { background: var(--accent); color: #fff; padding: 7px 12px; border-radius: 8px; font-size: 12px; text-decoration: none; font-weight: bold; }
+        .detail-actions a.secondary { background: var(--card); border: 1px solid #2a3560; color: var(--text); }
+        .ai-summary { font-size: 13px; line-height: 1.7; margin-bottom: 10px; }
+        .ai-ev { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+        .ai-ev li { background: var(--card2); border: 1px solid #2a3560; border-radius: 10px; padding: 8px 12px; font-size: 12px; color: var(--muted); }
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
         .modal.open { display: flex; }
         .modal-content { background: var(--card); border-radius: 16px; max-width: 600px; width: 100%; max-height: 80vh; overflow-y: auto; padding: 20px; }
@@ -41,44 +55,49 @@
 </head>
 <body>
     <div class="hero">
-        <h1>📊 일일 랭킹</h1>
-        <p class="muted">올리브영 · 다이소 뷰티 소싱 인사이트</p>
+        <div class="langs">
+            <button class="lang" data-lang="ko">한국어</button>
+            <button class="lang" data-lang="en">EN</button>
+            <button class="lang" data-lang="ar">العربية</button>
+        </div>
+        <h1 id="title"></h1>
+        <p class="muted" id="subtitle"></p>
     </div>
 
     <div class="tabs">
-        <button class="tab-btn active" data-period="daily">일간 (Daily)</button>
-        <button class="tab-btn" data-period="weekly">주간 (Weekly)</button>
-        <button class="tab-btn" data-period="monthly">월간 (Monthly)</button>
+        <button class="tab-btn active" data-period="daily" id="tabDaily"></button>
+        <button class="tab-btn" data-period="weekly" id="tabWeekly"></button>
+        <button class="tab-btn" data-period="monthly" id="tabMonthly"></button>
+        <button class="tab-btn" data-period="ai" id="tabAI"></button>
     </div>
 
-    <h2>🔥 트렌드 키워드</h2>
-    <div class="chips" id="trendChips">로딩 중...</div>
+    <div id="listSections">
+        <h2 id="hTrends"></h2>
+        <div class="chips" id="trendChips"></div>
 
-    <h2>🛒 플랫폼별 하이라이트</h2>
-    <div class="grid-2">
-        <div class="hl-card">
-            <h3>🌿 올리브영 (순위 급등 · 신규)</h3>
-            <div id="hlOliveyoung"></div>
+        <h2 id="hHighlights"></h2>
+        <div class="grid-2">
+            <div class="hl-card"><h3 id="hlOyTitle"></h3><div id="hlOliveyoung"></div></div>
+            <div class="hl-card"><h3 id="hlDsTitle"></h3><div id="hlDaiso"></div></div>
         </div>
-        <div class="hl-card">
-            <h3>💸 다이소 (리뷰 폭주 · 신상)</h3>
-            <div id="hlDaiso"></div>
+
+        <h2 id="hRankings"></h2>
+        <div class="tabs">
+            <button class="tab-btn active" data-rank="overall" id="rankOverall"></button>
+            <button class="tab-btn" data-rank="oliveyoung" id="rankOY"></button>
+            <button class="tab-btn" data-rank="daiso" id="rankDS"></button>
         </div>
+        <p class="hint" id="hintRank"></p>
+        <div class="card" id="rankingsList"></div>
     </div>
 
-    <h2>🏆 누적 랭킹</h2>
-    <div class="tabs">
-        <button class="tab-btn active" data-rank="overall">전체 랭킹</button>
-        <button class="tab-btn" data-rank="oliveyoung">올리브영</button>
-        <button class="tab-btn" data-rank="daiso">다이소</button>
-    </div>
-    <div class="card" id="rankingsList"></div>
+    <div id="aiSection" style="display:none"><div id="aiWrap"></div></div>
 
     <div class="modal" id="keywordModal">
         <div class="modal-content">
-            <button class="close-btn" onclick="closeModal()">✕ 닫기</button>
+            <button class="close-btn" onclick="closeModal()">✕</button>
             <h2 id="modalTitle"></h2>
-            <p class="muted" style="margin-bottom:12px">매칭되는 전체 상품 목록</p>
+            <p class="muted" id="modalSub" style="margin-bottom:12px"></p>
             <div id="modalProducts"></div>
         </div>
     </div>
@@ -88,67 +107,165 @@
         const fmtPrice = v => v == null ? '' : '₩' + Number(v).toLocaleString('ko-KR');
         let currentPeriod = 'daily';
         let currentRankTab = 'overall';
+        let LANG = localStorage.getItem('lang') || 'ko';
+
+        const I18N = {
+            ko: {title:'📊 종합', subtitle:'올리브영 · 다이소 뷰티 소싱 인사이트', pDaily:'일간 (Daily)', pWeekly:'주간 (Weekly)', pMonthly:'월간 (Monthly)', pAI:'✨ AI 트렌드 분석',
+                trends:'🔥 트렌드 키워드', highlights:'🛒 플랫폼별 하이라이트', oyCard:'🌿 올리브영 (순위 급등 · 신규)', dsCard:'💸 다이소 (리뷰 폭주 · 신상)',
+                rankings:'🏆 누적 킹', rOverall:'전체 랭킹', rOY:'올리브영', rDS:'다이소', hint:'상품을 누르면 짤막한 정보와 연동 사이트 링크가 열립니다.',
+                brand:'브랜드', price:'가격', reviews:'리뷰', growth:'증가', score:'점수', open:'상품 페이지 열기 ↗', searchDs:'🔍 다이소몰에서 검색',
+                evidence:'📎 분석 근거', loading:'불러오는 중...', noData:'데이터 없음', fail:'데이터 로드 실패', modalList:'매칭되는 전체 상품 목록', new:'NEW', steps:'계단', unit:'개'},
+            en: {title:'📊 Overview', subtitle:'Olive Young · Daiso beauty sourcing insights', pDaily:'Daily', pWeekly:'Weekly', pMonthly:'Monthly', pAI:'✨ AI Trend Analysis',
+                trends:'🔥 Trend Keywords', highlights:'🛒 Platform Highlights', oyCard:'🌿 Olive Young (Rising · New)', dsCard:'💸 Daiso (Review Surge · New)',
+                rankings:'🏆 Cumulative Rankings', rOverall:'Overall', rOY:'Olive Young', rDS:'Daiso', hint:'Tap a product for brief info and source-site links.',
+                brand:'Brand', price:'Price', reviews:'Reviews', growth:'Growth', score:'Score', open:'Open product page ↗', searchDs:'🔍 Search on Daiso Mall',
+                evidence:'📎 Evidence', loading:'Loading...', noData:'No data', fail:'Load failed', modalList:'Full list of matched products', new:'NEW', steps:'steps', unit:''},
+            ar: {title:'📊 نظرة شاملة', subtitle:'تحليلات توريد منتجات الجمال من أوليف يونغ ودايسو', pDaily:'يومي', pWeekly:'أسبوعي', pMonthly:'شهري', pAI:'✨ تحليل الاتجاهات بالAI',
+                trends:'🔥 كلمات الاتجاه', highlights:'🛒 أبرز المنصات', oyCard:'🌿 أوليف يونغ (صاعد · جديد)', dsCard:'💸 دايسو (ارتفاع المراجعات · جديد)',
+                rankings:'🏆 التصنيف التراكمي', rOverall:'الكل', rOY:'أوليف يونغ', rDS:'دايسو', hint:'اضغط على منتج لعرض معلومات موجزة وروابط الموقع.',
+                brand:'العلامة', price:'السعر', reviews:'المراجعات', growth:'النمو', score:'النقاط', open:'فتح صفحة المنتج ↗', searchDs:'🔍 بحث في دايسو',
+                evidence:'📎 أساس التحليل', loading:'جارٍ التحميل...', noData:'لا توجد بيانات', fail:'فشل التحميل', modalList:'القائمة الكاملة للمنتجات المطابقة', new:'جديد', steps:'مركز', unit:''}
+        };
+        const T = () => I18N[LANG] || I18N.ko;
+
+        function applyLang(){
+            const L = T();
+            document.documentElement.lang = LANG;
+            document.documentElement.dir = (LANG === 'ar') ? 'rtl' : 'ltr';
+            $('#title').textContent = L.title; $('#subtitle').textContent = L.subtitle;
+            $('#tabDaily').textContent = L.pDaily; $('#tabWeekly').textContent = L.pWeekly;
+            $('#tabMonthly').textContent = L.pMonthly; $('#tabAI').textContent = L.pAI;
+            $('#hTrends').textContent = L.trends; $('#hHighlights').textContent = L.highlights;
+            $('#hlOyTitle').textContent = L.oyCard; $('#hlDsTitle').textContent = L.dsCard;
+            $('#hRankings').textContent = L.rankings; $('#rankOverall').textContent = L.rOverall;
+            $('#rankOY').textContent = L.rOY; $('#rankDS').textContent = L.rDS;
+            $('#hintRank').textContent = L.hint; $('#modalSub').textContent = L.modalList;
+            document.querySelectorAll('.lang').forEach(b => b.classList.toggle('on', b.dataset.lang === LANG));
+        }
+
+        document.querySelectorAll('.lang').forEach(b => b.onclick = async () => {
+            LANG = b.dataset.lang; localStorage.setItem('lang', LANG); applyLang();
+            if (currentPeriod === 'ai') await loadAI();
+            else if (window.__DATA) renderDashboard(window.__DATA);
+        });
 
         function searchLink(p){
             if(!p.search_url) return '';
-            return `<a class="search-link" href="${p.search_url}" target="_blank" onclick="event.stopPropagation()" title="다이소몰에서 이 상품 검색">🔍</a>`;
+            return `<a class="search-link" href="${p.search_url}" target="_blank" onclick="event.stopPropagation()">🔍</a>`;
         }
 
         async function fetchDashboard(period) {
             try {
                 const res = await fetch(`/api/app/dashboard?period=${period}`);
-                const data = await res.json();
-                renderDashboard(data);
-            } catch (e) {
-                console.error(e);
-            }
+                renderDashboard(await res.json());
+            } catch (e) { console.error(e); }
         }
 
         function renderDashboard(data) {
+            const L = T();
+            window.__DATA = data;
             $('#trendChips').innerHTML = (data.trends||[]).map(t =>
                 `<span class="chip" onclick="openKeywordModal('${(t.keyword||'').replace(/'/g,"\\'")}')">${t.keyword}<span class="score">${Math.round(t.score || 0)}</span></span>`
-            ).join('') || '<p class="muted">데이터 없음</p>';
-
-            $('#hlOliveyoung').innerHTML = (data.highlights.oliveyoung||[]).map(hlOY).join('') || '<p class="muted">데이터 없음</p>';
-            $('#hlDaiso').innerHTML = (data.highlights.daiso||[]).map(hlDS).join('') || '<p class="muted">데이터 없음</p>';
-
+            ).join('') || `<p class="muted">${L.noData}</p>`;
+            $('#hlOliveyoung').innerHTML = (data.highlights.oliveyoung||[]).map(hlOY).join('') || `<p class="muted">${L.noData}</p>`;
+            $('#hlDaiso').innerHTML = (data.highlights.daiso||[]).map(hlDS).join('') || `<p class="muted">${L.noData}</p>`;
             window.__RANKINGS = data.rankings;
             renderRankings(data.rankings);
         }
 
         function hlOY(p){
+            const L = T();
             const badge = (p.previous_rank == null)
-                ? '<span class="badge badge-oy">NEW</span>'
-                : `<span class="badge badge-oy">▲${p.rank_change}계단</span>`;
+                ? `<span class="badge badge-oy">${L.new}</span>`
+                : `<span class="badge badge-oy">▲${p.rank_change}${L.steps}</span>`;
             return `<div class="row" onclick="window.open('${p.product_url}','_blank')">${badge}
-                <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand||''} · ${p.previous_rank ?? '-'}위 → ${p.current_rank}위</span></div></div>`;
+                <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand||''} · ${p.previous_rank ?? '-'} → ${p.current_rank}</span></div></div>`;
         }
 
         function hlDS(p){
+            const L = T();
             return `<div class="row" onclick="window.open('${p.product_url}','_blank')">
-                <span class="badge badge-ds">리뷰 +${p.review_growth ?? 0}</span>
-                <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand||''} · 리뷰 ${p.review_count ?? 0}개</span></div>
+                <span class="badge badge-ds">+${p.review_growth ?? 0}</span>
+                <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand||''} · ${L.reviews} ${p.review_count ?? 0}${L.unit}</span></div>
                 ${searchLink(p)}</div>`;
         }
 
         function renderRankings(rankings) {
+            const L = T();
             const list = rankings[currentRankTab] || [];
             $('#rankingsList').innerHTML = list.map((p, i) => `
-                <div class="row" onclick="window.open('${p.product_url}','_blank')">
+                <div class="row" onclick="toggleDetail(this)">
                     <span class="rank-badge">${i + 1}</span>
                     <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand || ''}</span></div>
                     <span class="muted">${p.platform_badge || ''}</span>
-                    <span class="muted">${fmtPrice(p.price || p.sale_price)}</span>
-                    ${searchLink(p)}
+                    <span class="muted">${fmtPrice(p.sale_price ?? p.price)}</span>
+                    <span class="chev">▾</span>
                 </div>
-            `).join('') || '<p class="muted">랭킹 데이터가 없습니다.</p>';
+                <div class="detail">
+                    <div class="detail-grid">
+                        <span>${L.brand} ${p.brand || '-'}</span>
+                        <span>${L.price} ${fmtPrice(p.sale_price ?? p.price) || '-'}</span>
+                        ${p.review_count != null ? `<span>${L.reviews} ${Number(p.review_count).toLocaleString()}${L.unit}</span>` : ''}
+                        ${p.review_growth != null ? `<span>${L.growth} +${p.review_growth}</span>` : ''}
+                        ${p.score != null ? `<span>${L.score} ${p.score}</span>` : ''}
+                    </div>
+                    <div class="detail-actions">
+                        <a href="${p.product_url}" target="_blank">${L.open}</a>
+                        ${p.search_url ? `<a class="secondary" href="${p.search_url}" target="_blank">${L.searchDs}</a>` : ''}
+                    </div>
+                </div>
+            `).join('') || `<p class="muted">${L.noData}</p>`;
+        }
+
+        function toggleDetail(rowEl) {
+            const d = rowEl.nextElementSibling;
+            if (!d) return;
+            d.classList.toggle('open');
+            const chev = rowEl.querySelector('.chev');
+            if (chev) chev.textContent = d.classList.contains('open') ? '▴' : '▾';
+        }
+
+        // ===== AI 트렌드 분석 =====
+        async function loadAI(){
+            const L = T();
+            $('#aiWrap').innerHTML = `<p class="muted">${L.loading}</p>`;
+            try {
+                const res = await fetch('/api/app/ai?lang=' + LANG);
+                renderAI((await res.json()).analysis);
+            } catch(e) { $('#aiWrap').innerHTML = `<p class="muted">${L.fail}</p>`; }
+        }
+
+        function renderAI(a){
+            const L = T();
+            const order = [["daily", L.pDaily], ["weekly", L.pWeekly], ["monthly", L.pMonthly]];
+            $('#aiWrap').innerHTML = order.map(([k, label]) => {
+                const sec = (a||{})[k] || {};
+                return `<div class="card">
+                    <h3 style="color:var(--accent);margin-bottom:10px">${label}</h3>
+                    <p class="ai-summary">${sec.summary || ''}</p>
+                    <div class="muted" style="margin-bottom:6px">${L.evidence}</div>
+                    <ul class="ai-ev">${(sec.evidence||[]).map(e => `<li>📎 ${e}</li>`).join('')}</ul>
+                </div>`;
+            }).join('');
+        }
+
+        async function switchPeriod(p){
+            currentPeriod = p;
+            if (p === 'ai') {
+                $('#listSections').style.display = 'none';
+                $('#aiSection').style.display = 'block';
+                await loadAI();
+            } else {
+                $('#listSections').style.display = 'block';
+                $('#aiSection').style.display = 'none';
+                fetchDashboard(p);
+            }
         }
 
         async function openKeywordModal(kw) {
             $('#modalTitle').textContent = `#${kw}`;
-            $('#modalProducts').innerHTML = '로딩 중...';
+            $('#modalProducts').innerHTML = T().loading;
             $('#keywordModal').classList.add('open');
-
             try {
                 const res = await fetch(`/api/app/keyword/${encodeURIComponent(kw)}`);
                 const data = await res.json();
@@ -156,25 +273,20 @@
                     <div class="row" onclick="window.open('${p.product_url}', '_blank')">
                         <span class="badge ${p.platform_badge === '🌿' ? 'badge-oy' : 'badge-ds'}">${p.platform_badge}</span>
                         <div class="info"><b>${p.product_name}</b><span class="muted">${p.brand || ''} · ${fmtPrice(p.price || p.sale_price)}</span></div>
-                        <span class="muted">리뷰 ${p.review_count || 0}</span>
+                        <span class="muted">${T().reviews} ${p.review_count || 0}</span>
                         ${searchLink(p)}
                     </div>
-                `).join('') || '<p class="muted">매칭되는 상품이 없습니다.</p>';
-            } catch (e) {
-                $('#modalProducts').innerHTML = '<p class="muted">데이터 로드 실패</p>';
-            }
+                `).join('') || `<p class="muted">${T().noData}</p>`;
+            } catch (e) { $('#modalProducts').innerHTML = `<p class="muted">${T().fail}</p>`; }
         }
 
-        function closeModal() {
-            $('#keywordModal').classList.remove('open');
-        }
+        function closeModal() { $('#keywordModal').classList.remove('open'); }
 
         document.querySelectorAll('.tab-btn[data-period]').forEach(btn => {
             btn.onclick = () => {
                 document.querySelectorAll('.tab-btn[data-period]').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                currentPeriod = btn.dataset.period;
-                fetchDashboard(currentPeriod);
+                switchPeriod(btn.dataset.period);
             };
         });
 
@@ -187,6 +299,7 @@
             };
         });
 
+        applyLang();
         fetchDashboard(currentPeriod);
     </script>
 </body>
