@@ -22,6 +22,7 @@ MAPPING_TTL_DAYS = 7
 # 제품명에 실제로 등장하는 표현 위주, 정확도 100%
 # ============================================================
 INGREDIENT_MAP = {
+    # --- 성분 ---
     "ceramide": ["세라마이드"],
     "retinol": ["레티놀", "레티날"],
     "retinal": ["레티날"],
@@ -51,7 +52,7 @@ INGREDIENT_MAP = {
     "bakuchiol": ["바쿠치올"],
     "salicylic": ["살리실", "bha"],
     "glycolic": ["글리콜", "aha"],
-    "beta-glucan": ["베글루칸"],
+    "beta-glucan": ["베타글루칸"],
     "heartleaf": ["어성초"],
     "mugwort": ["쑥"],
     "tea tree": ["티트리"],
@@ -60,9 +61,31 @@ INGREDIENT_MAP = {
     "green tea": ["녹차"],
     "rice": ["쌀", "미", "라이스"],
     "bamboo": ["대나무"],
-    "betaine": ["베인"],
+    "betaine": ["베타인"],
     "allantoin": ["알란토인"],
     "zinc": ["징크", "아연"],
+    # --- 제품 유형 ---
+    "ampoule": ["앰플"],
+    "moisturiser": ["크림", "로션", "모이스처", "보습"],
+    "moisturizer": ["크림", "로션", "모이스처", "보습"],
+    "sunscreen": ["선크림", "선스크린", "선케어", "자외선차단"],
+    "sunstick": ["선스틱", "선팩", "선케어", "자외선차단"],
+    "spf": ["선크림", "선스크린", "자외선차단", "선크림"],
+    # --- 효능/컨셉 ---
+    "barrier": ["장벽", "피부장벽", "배리어"],
+    "glow": ["광채", "글로우", "광"],
+    "hydration": ["수분", "보습", "히알루론"],
+    "brightening": ["화이트닝", "미백", "광채", "밝은"],
+    "dark spot": ["잡티", "미백", "다크스팟"],
+    "dark spots": ["잡티", "미백", "다크스팟"],
+    "acne": ["트러블", "피지", "여드름"],
+    "glass skin": ["광채", "글로우", "유리광", "광"],
+    "anti-aging": ["주름", "탄력", "에이징"],
+    "toner": ["토너"],
+    "serum": ["세럼", "앰플"],
+    "essence": ["에센스"],
+    "cleanser": ["클렌징", "클렌저"],
+    "mask": ["마스크팩", "팩"],
 }
 
 # Gemini 클라이언트 (lazy init)
@@ -78,7 +101,7 @@ def _get_genai():
         if not api_key:
             return None
         genai.configure(api_key=api_key)
-        _genai_client = genai.GenerativeModel("gemini-2.0-flash")
+        _genai_client = genai.GenerativeModel("gemini-2.5-flash")
         return _genai_client
     except Exception as e:
         logging.warning(f"GenAI init failed: {e}")
@@ -175,213 +198,4 @@ def _expand_keyword(keyword: str):
     # 1층: 성분 사전 (즉시, 정확도 100%)
     terms += INGREDIENT_MAP.get(kw, [])
 
-    # 2층: Gemini 캐시
-    cached = _get_cached(kw)
-    if cached:
-        terms += cached
-    else:
-        # 3층: Gemini 실시간 (사전에 없는 키워드만)
-        g = _ask_gemini(kw)
-        if g:
-            _set_cached(kw, g)
-            terms += g
-
-    # 중복 제거 (순서 유지)
-    return list(dict.fromkeys(terms))
-
-
-# ============================================================
-# 데이터 조회 헬퍼
-# ============================================================
-
-def _rows(conn, sql, params=()):
-    return [dict(r) for r in conn.execute(sql, params).fetchall()]
-
-
-def _cols(conn, table):
-    return [r["name"] for r in conn.execute(f'PRAGMA table_info("{table}")')]
-
-
-def _pick(cols, candidates):
-    for c in candidates:
-        if c in cols:
-            return c
-    return None
-
-
-def _top_trends(conn, limit):
-    cols = _cols(conn, "trend_scores")
-    kw = _pick(cols, ["keyword", "query", "term", "topic", "name"])
-    if not kw:
-        return [], None
-    latest = conn.execute("SELECT MAX(signal_date) AS d FROM trend_scores").fetchone()["d"]
-    if not latest:
-        return [], None
-
-    score = _pick(cols, ["score", "total_score", "trend_score", "heat"]) or "velocity_score"
-    extra = [c for c in ["velocity_score", "persistence_score", "platforms"] if c in cols]
-    sel = f"{kw} AS keyword, {score} AS score" + (", " + ", ".join(extra) if extra else "")
-
-    return _rows(
-        conn,
-        f"""SELECT {sel} FROM trend_scores
-            WHERE signal_date = ? ORDER BY {score} DESC LIMIT ?""",
-        (latest, limit),
-    ), latest
-
-
-def _google_signals(conn, limit):
-    return _rows(
-        conn,
-        """SELECT signal_date, platform, query, tag, region, text
-           FROM raw_signals
-           WHERE LOWER(platform) LIKE 'google%'
-           ORDER BY id DESC LIMIT ?""",
-        (limit,),
-    )
-
-
-def _top_rankings(conn, limit):
-    latest = conn.execute("SELECT MAX(ranking_date) AS d FROM daily_rankings").fetchone()["d"]
-    if not latest:
-        return [], None
-    return _rows(
-        conn,
-        """SELECT r.rank_num, r.source, r.category, r.product_id,
-                  p.brand, p.product_name, p.product_url,
-                  (SELECT s.sale_price FROM product_snapshots s
-                    WHERE s.product_id = r.product_id
-                    ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS sale_price,
-                  (SELECT s.price FROM product_snapshots s
-                    WHERE s.product_id = r.product_id
-                    ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS price
-           FROM daily_rankings r
-           LEFT JOIN products p ON p.product_id = r.product_id
-           WHERE r.ranking_date = ?
-           ORDER BY r.rank_num LIMIT ?""",
-        (latest, limit),
-    ), latest
-
-
-def _rising_products(conn, limit):
-    latest = conn.execute("SELECT MAX(ranking_date) AS d FROM daily_rankings").fetchone()["d"]
-    if not latest:
-        return [], None
-    previous = conn.execute(
-        "SELECT MAX(ranking_date) AS d FROM daily_rankings WHERE ranking_date < ?",
-        (latest,),
-    ).fetchone()["d"]
-
-    items = _rows(
-        conn,
-        """SELECT cur.rank_num AS current_rank, prev.rank_num AS previous_rank,
-                  cur.product_id, p.brand, p.product_name, p.product_url
-           FROM daily_rankings cur
-           LEFT JOIN daily_rankings prev
-             ON prev.product_id = cur.product_id
-            AND prev.source = cur.source
-            AND prev.ranking_type = cur.ranking_type
-            AND prev.category = cur.category
-            AND prev.ranking_date = ?
-           LEFT JOIN products p ON p.product_id = cur.product_id
-           WHERE cur.ranking_date = ?""",
-        (previous, latest),
-    )
-    out = []
-    for it in items:
-        it = dict(it)
-        if it["previous_rank"] is not None:
-            it["rank_change"] = it["previous_rank"] - it["current_rank"]
-            it["direction"] = "up" if it["rank_change"] > 0 else ("down" if it["rank_change"] < 0 else "same")
-        else:
-            it["rank_change"] = None
-            it["direction"] = "new"
-        out.append(it)
-    out.sort(key=lambda x: x["rank_change"] if x["rank_change"] is not None else -9999, reverse=True)
-    return out[:limit], latest
-
-
-def _trend_product_matches(trends, conn, per=3):
-    """Gemini + 성분사전 매핑으로 트렌드 → 상품 매칭"""
-    matches = []
-    for t in trends:
-        kw = (t.get("keyword") or "").strip()
-        if not kw:
-            continue
-        terms = _expand_keyword(kw)
-        products, seen = [], set()
-        for term in terms:
-            for p in _rows(
-                conn,
-                """SELECT product_id, brand, product_name, product_url, category
-                   FROM products
-                   WHERE LOWER(product_name) LIKE LOWER(?) LIMIT ?""",
-                (f"%{term}%", per),
-            ):
-                if p["product_id"] not in seen:
-                    seen.add(p["product_id"])
-                    products.append(p)
-            if len(products) >= per:
-                break
-        if products:
-            matches.append({
-                "keyword": kw,
-                "score": t.get("score"),
-                "matched_terms": terms,
-                "products": products[:per],
-            })
-    return matches
-
-
-# ============================================================
-# 통합 엔드포인트
-# ============================================================
-
-@router.get("/home")
-def app_home(
-    trends_limit: int = Query(10, ge=1, le=30),
-    rankings_limit: int = Query(10, ge=1, le=50),
-    rising_limit: int = Query(10, ge=1, le=50),
-    google_limit: int = Query(10, ge=1, le=50),
-):
-    _init_cache_db()
-
-    trend_conn = get_trend_db()
-    try:
-        try:
-            top_trends, trend_date = _top_trends(trend_conn, trends_limit)
-        except Exception:
-            top_trends, trend_date = [], None
-        try:
-            google_signals = _google_signals(trend_conn, google_limit)
-        except Exception:
-            google_signals = []
-    finally:
-        trend_conn.close()
-
-    cat_conn = get_catalog_db()
-    try:
-        try:
-            top_rankings, rank_date = _top_rankings(cat_conn, rankings_limit)
-        except Exception:
-            top_rankings, rank_date = [], None
-        try:
-            rising, _ = _rising_products(cat_conn, rising_limit)
-        except Exception:
-            rising = []
-        try:
-            matches = _trend_product_matches(top_trends, cat_conn)
-        except Exception as e:
-            logging.warning(f"trend_product_matches failed: {e}")
-            matches = []
-    finally:
-        cat_conn.close()
-
-    return {
-        "updated_at": {"trends": trend_date, "catalog": rank_date},
-        "top_trends": top_trends,
-        "trend_product_matches": matches,
-        "top_rankings": top_rankings,
-        "rising_products": rising,
-        "google_signals": google_signals,
-    }
+    # 2층
