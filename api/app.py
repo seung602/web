@@ -1,211 +1,400 @@
-# api/app.py (전체 교체)
+"""앱 전용 통합 API — 트렌드 + 카탈로그 + Gemini 한영 매칭"""
+import json
 import logging
 import os
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query
 from api.database import get_trend_db, get_catalog_db
 
 router = APIRouter(prefix="/api/app", tags=["App"])
 
 # ============================================================
-# Gemini 매핑 로직 (기존 로직 유지 - 축약 버전)
+# Gemini 한-영 매핑 자동화
 # ============================================================
-# (기존 INGREDIENT_MAP과 _expand_keyword 함수는 그대로 유지해주세요. 
-#  길이를 위해 생략했지만, 실제 적용 시에는 원본 app.py의 _expand_keyword 함수를 그대로 쓰시면 됩니다.)
-def _expand_keyword(keyword: str):
-    # 성분 사전 + Gemini 확장 로직 (기존 코드 사용)
-    terms = [keyword.lower()]
-    # ... (원본 app.py의 _expand_keyword 내용 붙여넣기)
-    return terms
+MAPPING_CACHE_PATH = Path("/tmp/mapping_cache.db")
+MAPPING_TTL_DAYS = 7
 
+# ============================================================
+# 성분 사전 (서구 성분 키워드 → 한국어 상품명 표현)
+# ============================================================
+INGREDIENT_MAP = {
+    "ceramide": ["세라마이드"],
+    "retinol": ["레티놀", "레티날"],
+    "retinal": ["레티날"],
+    "niacinamide": ["나이아신아마이드", "나이아신"],
+    "hyaluronic": ["히알루론", "히아루론"],
+    "hyaluronic acid": ["히알루론산", "히알루론"],
+    "pdrn": ["피디알엔", "pdrn", "연어"],
+    "azelaic": ["아젤라익"],
+    "azelaic acid": ["아젤라익"],
+    "panthenol": ["판테놀"],
+    "centella": ["센텔라", "병풀", "시카"],
+    "cica": ["시카", "센텔라", "병풀"],
+    "propolis": ["프로폴리스"],
+    "peptide": ["펩타이드"],
+    "snail": ["달팽이", "스네일"],
+    "snail mucin": ["달팽이점액", "달팽이", "스네일"],
+    "collagen": ["콜라겐"],
+    "vitamin c": ["비타민", "비타"],
+    "ectoin": ["엑토인"],
+    "spicule": ["스피큘"],
+    "madecassoside": ["마데카소사이드"],
+    "asiaticoside": ["아시아티코사이드"],
+    "glutathione": ["글루타치온"],
+    "tranexamic": ["트라넥삼"],
+    "adenosine": ["아데노신"],
+    "squalane": ["스쿠알란"],
+    "bakuchiol": ["바쿠치올"],
+    "salicylic": ["살리실", "bha"],
+    "glycolic": ["글리콜", "aha"],
+    "beta-glucan": ["베타글루칸"],
+    "heartleaf": ["어성초"],
+    "mugwort": ["쑥"],
+    "tea tree": ["티트리"],
+    "aloe": ["알로에"],
+    "ginseng": ["인삼", "홍삼"],
+    "green tea": ["녹차"],
+    "rice": ["쌀", "미", "라이스"],
+    "bamboo": ["대나무"],
+    "betaine": ["베타인"],
+    "allantoin": ["알란토인"],
+    "zinc": ["징크", "아연"],
+    "ampoule": ["앰플"],
+    "moisturiser": ["크림", "로션", "모이스처", "보습"],
+    "moisturizer": ["크림", "로션", "모이스처", "보습"],
+    "sunscreen": ["선크림", "선스크린", "선케어", "자외선차단"],
+    "sunstick": ["선스틱", "선팩", "선케어", "자외선차단"],
+    "spf": ["선크림", "선스크린", "자외선차단", "선크림"],
+    "barrier": ["장벽", "피부장벽", "배리어"],
+    "glow": ["광채", "글로우", "광"],
+    "hydration": ["수분", "보습", "히알루론"],
+    "brightening": ["화이트닝", "미백", "광채", "밝은"],
+    "dark spot": ["잡티", "미백", "다크스팟"],
+    "dark spots": ["잡티", "미백", "다크스팟"],
+    "acne": ["트러블", "피지", "여드름"],
+    "glass skin": ["광채", "글로우", "유리광", "광"],
+    "anti-aging": ["주름", "탄력", "에이징"],
+    "toner": ["토너"],
+    "serum": ["세럼", "앰플"],
+    "essence": ["에센스"],
+    "cleanser": ["클렌징", "클렌저"],
+    "mask": ["마스크팩", "팩"],
+}
+
+# Gemini 클라이언트 (lazy init)
+_genai_client = None
+
+def _get_genai():
+    global _genai_client
+    if _genai_client is not None:
+        return _genai_client
+    try:
+        import google.generativeai as genai
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            return None
+        genai.configure(api_key=api_key)
+        _genai_client = genai.GenerativeModel("gemini-1.5-flash")
+        return _genai_client
+    except Exception as e:
+        logging.warning(f"GenAI init failed: {e}")
+        return None
+
+def _init_cache_db():
+    MAPPING_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(MAPPING_CACHE_PATH)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS mapping_cache (
+            keyword TEXT PRIMARY KEY,
+            terms TEXT,
+            cached_at TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def _get_cached(keyword: str):
+    if not MAPPING_CACHE_PATH.exists():
+        return None
+    conn = sqlite3.connect(MAPPING_CACHE_PATH)
+    try:
+        row = conn.execute(
+            "SELECT terms, cached_at FROM mapping_cache WHERE keyword = ?",
+            (keyword.lower(),)
+        ).fetchone()
+        if not row:
+            return None
+        terms_json, cached_at_str = row
+        cached_at = datetime.fromisoformat(cached_at_str)
+        if datetime.now() - cached_at > timedelta(days=MAPPING_TTL_DAYS):
+            return None
+        return json.loads(terms_json)
+    finally:
+        conn.close()
+
+def _set_cached(keyword: str, terms: list):
+    conn = sqlite3.connect(MAPPING_CACHE_PATH)
+    try:
+        conn.execute(
+            "INSERT OR REPLACE INTO mapping_cache (keyword, terms, cached_at) VALUES (?, ?, ?)",
+            (keyword.lower(), json.dumps(terms, ensure_ascii=False),
+             datetime.now().isoformat())
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+def _ask_gemini(keyword: str):
+    client = _get_genai()
+    if client is None:
+        return None
+    prompt = f"""You are a K-beauty expert. For the Korean cosmetics trend keyword '{keyword}',
+list 3-6 Korean expressions that would appear in Korean product names (상품명).
+Examples:
+- retinol → ["레티놀", "레티날", "비타A", "안티에이징"]
+- ceramide → ["세라마이드"]
+- glass skin → ["광채", "글로우", "유리광"]
+- sunscreen → ["선크림", "선스크린", "선케어", "자외선차단"]
+- sunstick → ["선스틱", "선크림", "선팩", "UV차단"]
+Return ONLY a JSON array of Korean strings, nothing else. No markdown, no explanation.
+Keyword: '{keyword}'
+Output:"""
+    try:
+        resp = client.generate_content(
+            prompt, generation_config={"temperature": 0.3}
+        )
+        text = resp.text.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        terms = json.loads(text)
+        if isinstance(terms, list) and all(isinstance(t, str) for t in terms):
+            return terms[:6]
+    except Exception as e:
+        logging.warning(f"Gemini query failed for '{keyword}': {e}")
+    return None
+
+def _expand_keyword(keyword: str):
+    """한-영 매핑 확장: 성분사전(즉시) → Gemini캐시 → Gemini실시간"""
+    kw = (keyword or "").lower()
+    terms = [kw]
+    # 1층: 성분 사전
+    terms += INGREDIENT_MAP.get(kw, [])
+    # 2층: Gemini 캐시
+    cached = _get_cached(kw)
+    if cached:
+        terms += cached
+    else:
+        # 3층: Gemini 실시간
+        g = _ask_gemini(kw)
+        if g:
+            _set_cached(kw, g)
+            terms += g
+    return list(dict.fromkeys(terms))
+
+# ============================================================
+# 데이터 조회 헬퍼
+# ============================================================
 def _rows(conn, sql, params=()):
     return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
-# ============================================================
-# 기간별 집계 헬퍼 함수
-# ============================================================
-def _get_date_ranges(period: str):
-    """기간별 날짜 범위 계산 (최신 스냅샷 기준)"""
-    latest_date = None
-    # 최신 스냅샷 날짜 찾기 (catalog_db)
-    conn = get_catalog_db()
+def _cols(conn, table):
     try:
-        row = conn.execute("SELECT MAX(snapshot_date) as d FROM product_snapshots").fetchone()
-        if row and row["d"]:
-            latest_date = datetime.strptime(row["d"], "%Y-%m-%d").date()
-    except Exception:
-        pass
-    finally:
-        conn.close()
-        
-    if not latest_date:
-        latest_date = datetime.now().date()
-        
-    if period == "daily":
-        return latest_date, latest_date - timedelta(days=1)
-    elif period == "weekly":
-        return latest_date, latest_date - timedelta(days=7)
-    elif period == "monthly":
-        return latest_date, latest_date - timedelta(days=30)
-    return latest_date, latest_date - timedelta(days=1)
-
-def get_trends(conn, period: str):
-    """트렌드 키워드 조회"""
-    latest, _ = _get_date_ranges(period)
-    try:
-        return _rows(conn, """
-            SELECT keyword, score FROM trend_scores 
-            WHERE signal_date = ? 
-            ORDER BY score DESC LIMIT 15
-        """, (latest.isoformat(),))
+        return [r["name"] for r in conn.execute(f'PRAGMA table_info("{table}")')]
     except Exception:
         return []
 
-def get_highlights(conn, period: str):
-    """플랫폼별 하이라이트 (변화율 기준)"""
-    latest, past = _get_date_ranges(period)
-    latest_str, past_str = latest.isoformat(), past.isoformat()
-    
-    highlights = {"oliveyoung": [], "daiso": []}
-    
-    # 올리브영: ranking_changes 테이블에서 급상승/신규 상품 조회
+def _parse(d):
     try:
-        highlights["oliveyoung"] = _rows(conn, """
-            SELECT r.product_id, p.product_name, p.brand, p.product_url, r.rank_change, r.direction
-            FROM ranking_changes r
-            JOIN products p ON r.product_id = p.product_id
-            WHERE r.change_date = ? AND p.source = 'oliveyoung'
-            ORDER BY r.rank_change DESC LIMIT 5
-        """, (latest_str,))
+        return datetime.strptime(str(d)[:10], "%Y-%m-%d").date()
     except Exception:
-        # ranking_changes 테이블이 없거나 데이터가 없을 때 daily_rankings 비교
-        highlights["oliveyoung"] = []
+        return None
 
-    # 다이소: product_snapshots에서 리뷰 수 증가량 계산
-    try:
-        highlights["daiso"] = _rows(conn, """
-            SELECT p.product_id, p.product_name, p.brand, p.product_url, 
-                   s2.review_count, s1.review_count,
-                   (COALESCE(s2.review_count, 0) - COALESCE(s1.review_count, 0)) as review_growth
-            FROM products p
-            LEFT JOIN product_snapshots s2 ON p.product_id = s2.product_id AND s2.snapshot_date = ?
-            LEFT JOIN product_snapshots s1 ON p.product_id = s1.product_id AND s1.snapshot_date = ?
-            WHERE p.source = 'daiso'
-            ORDER BY review_growth DESC LIMIT 5
-        """, (latest_str, past_str))
-    except Exception:
-        highlights["daiso"] = []
-        
-    return highlights
+_PERIOD_DAYS = {"daily": 1, "weekly": 7, "monthly": 30}
 
-def get_rankings(conn, period: str):
-    """플랫폼별 랭킹 (누적 점수/리뷰 증가량 기준)"""
-    latest, past = _get_date_ranges(period)
-    latest_str, past_str = latest.isoformat(), past.isoformat()
-    
-    rankings = {"oliveyoung": [], "daiso": [], "overall": []}
-    
-    # 올리브영: 기간 내 순위 누적 점수 SUM(31 - rank_num)
-    try:
-        rankings["oliveyoung"] = _rows(conn, """
-            SELECT r.product_id, p.product_name, p.brand, p.product_url,
-                   SUM(31 - r.rank_num) as score, p.price
-            FROM daily_rankings r
-            JOIN products p ON r.product_id = p.product_id
-            WHERE p.source = 'oliveyoung' AND r.ranking_date >= ?
-            GROUP BY r.product_id
-            ORDER BY score DESC LIMIT 30
-        """, (past_str,))
-    except Exception:
-        rankings["oliveyoung"] = []
+def _catalog_range(conn, period):
+    latest = conn.execute("SELECT MAX(snapshot_date) AS d FROM product_snapshots").fetchone()["d"]
+    d = _parse(latest) or datetime.now().date()
+    return latest, (d - timedelta(days=_PERIOD_DAYS[period])).isoformat()
 
-    # 다이소: 기간 내 리뷰 증가량
+def _ranking_range(conn, period):
+    latest = conn.execute("SELECT MAX(ranking_date) AS d FROM daily_rankings").fetchone()["d"]
+    if not latest:
+        return None, None
+    d = _parse(latest) or datetime.now().date()
+    cutoff = (d - timedelta(days=_PERIOD_DAYS[period])).isoformat()
+    prev = conn.execute(
+        "SELECT MAX(ranking_date) AS d FROM daily_rankings WHERE ranking_date <= ?",
+        (cutoff,),
+    ).fetchone()["d"]
+    return latest, prev
+
+# ---------- 트렌드 키워드 ----------
+def get_trends(conn, period, limit=15):
     try:
-        rankings["daiso"] = _rows(conn, """
+        cols = _cols(conn, "trend_scores")
+        kw = next((c for c in ["keyword", "query", "term"] if c in cols), None)
+        sc = next((c for c in ["score", "total_score", "trend_score"] if c in cols), None)
+        if not kw or not sc:
+            return []
+        latest = conn.execute("SELECT MAX(signal_date) AS d FROM trend_scores").fetchone()["d"]
+        if not latest:
+            return []
+        if period == "daily":
+            return _rows(conn, f"SELECT {kw} AS keyword, {sc} AS score FROM trend_scores WHERE signal_date=? ORDER BY {sc} DESC LIMIT ?", (latest, limit))
+        d = _parse(latest)
+        cutoff = (d - timedelta(days=_PERIOD_DAYS[period])).isoformat()
+        return _rows(conn, f"""
+            SELECT {kw} AS keyword, MAX({sc}) AS score FROM trend_scores
+            WHERE signal_date >= ? GROUP BY {kw} ORDER BY score DESC LIMIT ?
+        """, (cutoff, limit))
+    except Exception as e:
+        logging.warning(f"get_trends failed: {e}")
+        return []
+
+# ---------- 올리브영 하이라이트 (순위 급등) ----------
+def _oy_highlights(conn, period, limit=5):
+    try:
+        latest, prev = _ranking_range(conn, period)
+        if not latest:
+            return []
+        return _rows(conn, """
+            SELECT cur.product_id, p.product_name, p.brand, p.product_url,
+                   cur.rank_num AS current_rank, prev.rank_num AS previous_rank,
+                   COALESCE(prev.rank_num, 999) - cur.rank_num AS rank_change
+            FROM daily_rankings cur
+            JOIN products p ON p.product_id = cur.product_id
+            LEFT JOIN daily_rankings prev
+              ON prev.product_id = cur.product_id AND prev.source = cur.source
+             AND prev.ranking_type = cur.ranking_type AND prev.category = cur.category
+             AND prev.ranking_date = ?
+            WHERE cur.ranking_date = ? AND LOWER(cur.source) = 'oliveyoung'
+            ORDER BY rank_change DESC, cur.rank_num ASC LIMIT ?
+        """, (prev, latest, limit))
+    except Exception as e:
+        logging.warning(f"oy_highlights failed: {e}")
+        return []
+
+# ---------- 다이소 하이라이트/랭킹 (리뷰 증가량) ----------
+def _daiso_by_reviews(conn, period, limit=30):
+    try:
+        latest, past = _catalog_range(conn, period)
+        if not latest:
+            return []
+        if "review_count" not in _cols(conn, "product_snapshots"):
+            return _rows(conn, """
+                SELECT p.product_id, p.product_name, p.brand, p.product_url,
+                       s2.price AS price, s2.sale_price AS sale_price,
+                       0 AS review_growth, NULL AS review_count
+                FROM products p
+                JOIN product_snapshots s2 ON s2.product_id = p.product_id AND s2.snapshot_date = ?
+                WHERE LOWER(p.source) = 'daiso'
+                ORDER BY p.last_catalog_seen_at DESC LIMIT ?
+            """, (latest, limit))
+        return _rows(conn, """
             SELECT p.product_id, p.product_name, p.brand, p.product_url,
-                   (COALESCE(s2.review_count, 0) - COALESCE(s1.review_count, 0)) as review_growth, p.price
+                   s2.price AS price, s2.sale_price AS sale_price,
+                   s2.review_count AS review_count,
+                   (COALESCE(s2.review_count,0) - COALESCE(s1.review_count,0)) AS review_growth
             FROM products p
-            LEFT JOIN product_snapshots s2 ON p.product_id = s2.product_id AND s2.snapshot_date = ?
-            LEFT JOIN product_snapshots s1 ON p.product_id = s1.product_id AND s1.snapshot_date = ?
-            WHERE p.source = 'daiso'
-            ORDER BY review_growth DESC LIMIT 30
-        """, (latest_str, past_str))
-    except Exception:
-        rankings["daiso"] = []
-        
-    # 전체 랭킹: 두 리스트를 점수 기준으로 정규화 후 합산
-    # (간단하게 올영 1~30위를 100~70점, 다이소 1~30위를 100~70점으로 매핑하여 정렬)
-    overall = []
-    max_oy_score = rankings["oliveyoung"][0]["score"] if rankings["oliveyoung"] else 1
-    max_ds_score = rankings["daiso"][0]["review_growth"] if rankings["daiso"] else 1
-    
-    for i, p in enumerate(rankings["oliveyoung"][:15]):
-        normalized = (1 - (i / 30)) * 100
-        p["final_score"] = normalized
-        p["platform_badge"] = "🌿"
-        overall.append(p)
-        
-    for i, p in enumerate(rankings["daiso"][:15]):
-        normalized = (1 - (i / 30)) * 100
-        p["final_score"] = normalized
-        p["platform_badge"] = "💸"
-        overall.append(p)
-        
-    overall.sort(key=lambda x: x.get("final_score", 0), reverse=True)
-    rankings["overall"] = overall[:30]
-    
-    return rankings
+            JOIN product_snapshots s2 ON s2.product_id = p.product_id AND s2.snapshot_date = ?
+            LEFT JOIN product_snapshots s1 ON s1.product_id = p.product_id AND s1.snapshot_date = ?
+            WHERE LOWER(p.source) = 'daiso'
+            ORDER BY review_growth DESC, review_count DESC LIMIT ?
+        """, (latest, past, limit))
+    except Exception as e:
+        logging.warning(f"daiso_by_reviews failed: {e}")
+        return []
+
+# ---------- 올리브영 랭킹 (누적 점수) ----------
+def _oy_rankings(conn, period, limit=30):
+    try:
+        latest, _ = _ranking_range(conn, period)
+        if not latest:
+            return []
+        if period == "daily":
+            date_cond, params = "r.ranking_date = ?", [latest]
+        else:
+            d = _parse(latest)
+            cutoff = (d - timedelta(days=_PERIOD_DAYS[period])).isoformat()
+            date_cond, params = "r.ranking_date >= ?", [cutoff]
+        params.append(limit)
+        return _rows(conn, f"""
+            SELECT r.product_id, p.product_name, p.brand, p.product_url,
+                   SUM(31 - r.rank_num) AS score,
+                   (SELECT s.price FROM product_snapshots s WHERE s.product_id = r.product_id
+                    ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS price,
+                   (SELECT s.sale_price FROM product_snapshots s WHERE s.product_id = r.product_id
+                    ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS sale_price
+            FROM daily_rankings r
+            JOIN products p ON p.product_id = r.product_id
+            WHERE LOWER(r.source) = 'oliveyoung' AND {date_cond}
+            GROUP BY r.product_id ORDER BY score DESC LIMIT ?
+        """, params)
+    except Exception as e:
+        logging.warning(f"oy_rankings failed: {e}")
+        return []
+
+def _overall(oy, ds):
+    out = []
+    for i, p in enumerate(oy):
+        out.append({**p, "final_score": 100 - i * 3, "platform_badge": "🌿"})
+    for i, p in enumerate(ds):
+        out.append({**p, "final_score": 100 - i * 3, "platform_badge": "💸"})
+    out.sort(key=lambda x: x["final_score"], reverse=True)
+    return out
 
 # ============================================================
-# 통합 대시보드 엔드포인트
+# 엔드포인트
 # ============================================================
 @router.get("/dashboard")
-def get_dashboard(period: str = Query("daily", enum=["daily", "weekly", "monthly"])):
-    trend_conn = get_trend_db()
-    cat_conn = get_catalog_db()
-    
+def get_dashboard(period: str = Query("daily")):
+    if period not in _PERIOD_DAYS:
+        period = "daily"
+    tconn, cconn = get_trend_db(), get_catalog_db()
     try:
-        trends = get_trends(trend_conn, period)
-        highlights = get_highlights(cat_conn, period)
-        rankings = get_rankings(cat_conn, period)
-        
+        oy = _oy_rankings(cconn, period)
+        ds = _daiso_by_reviews(cconn, period)
+        for p in oy: p["platform_badge"] = "🌿"
+        for p in ds: p["platform_badge"] = "💸"
         return {
             "period": period,
-            "trends": trends,
-            "highlights": highlights,
-            "rankings": rankings
+            "trends": get_trends(tconn, period),
+            "highlights": {
+                "oliveyoung": _oy_highlights(cconn, period, 5),
+                "daiso": _daiso_by_reviews(cconn, period, 5),
+            },
+            "rankings": {"oliveyoung": oy, "daiso": ds, "overall": _overall(oy, ds)},
         }
     finally:
-        trend_conn.close()
-        cat_conn.close()
+        tconn.close()
+        cconn.close()
 
 @router.get("/keyword/{keyword}")
 def get_keyword_detail(keyword: str):
-    """키워드 클릭 시 매칭되는 '전체' 상품 목록 반환 (개수 제한 없음)"""
-    cat_conn = get_catalog_db()
+    conn = get_catalog_db()
     try:
         terms = _expand_keyword(keyword)
-        products = []
-        seen = set()
-        
+        has_review = "review_count" in _cols(conn, "product_snapshots")
+        extra = """, (SELECT s.price FROM product_snapshots s WHERE s.product_id = products.product_id
+                      ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS price,
+                     (SELECT s.sale_price FROM product_snapshots s WHERE s.product_id = products.product_id
+                      ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS sale_price"""
+        if has_review:
+            extra += """, (SELECT s.review_count FROM product_snapshots s WHERE s.product_id = products.product_id
+                           ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS review_count"""
+        products, seen = [], set()
         for term in terms:
-            # 💡 여기서 LIMIT 20 구문을 완전히 제거했습니다!
-            rows = _rows(cat_conn, """
-                SELECT product_id, product_name, brand, product_url, source, price, review_count
-                FROM products
-                WHERE LOWER(product_name) LIKE LOWER(?)
-                ORDER BY review_count DESC
-            """, (f"%{term}%",))
-            
-            for r in rows:
+            for r in _rows(conn, f"""
+                SELECT product_id, source, brand, product_name, product_url, category {extra}
+                FROM products WHERE LOWER(product_name) LIKE LOWER(?)
+            """, (f"%{term}%",)):
                 if r["product_id"] not in seen:
                     seen.add(r["product_id"])
-                    r["platform_badge"] = "🌿" if r["source"] == "oliveyoung" else "💸"
+                    r["platform_badge"] = "🌿" if (r.get("source") or "").lower() == "oliveyoung" else "💸"
                     products.append(r)
-                    
-        # 💡 여기서는 [:30] 슬라이싱을 제거하여 찾은 상품을 모두 반환합니다.
-        return {"keyword": keyword, "products": products}
+        products.sort(key=lambda x: x.get("review_count") or 0, reverse=True)
+        return {"keyword": keyword, "count": len(products), "products": products}
     finally:
-        cat_conn.close()
+        conn.close()
