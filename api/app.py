@@ -82,7 +82,7 @@ def _get_genai():
         if not api_key:
             return None
         genai.configure(api_key=api_key)
-        _genai_client = genai.GenerativeModel("gemini-2.0-flash")   # ← 3.7-flash → 2.0-flash
+        _genai_client = genai.GenerativeModel("gemini-3.6-flash")   # ← 안정적인 모델
         return _genai_client
     except Exception as e:
         logging.warning(f"GenAI init failed: {e}")
