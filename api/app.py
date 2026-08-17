@@ -100,6 +100,7 @@ def _init_cache_db():
     conn.close()
 
 def _get_cached(keyword: str):
+    _init_cache_db()
     if not MAPPING_CACHE_PATH.exists():
         return None
     conn = sqlite3.connect(MAPPING_CACHE_PATH)
@@ -115,6 +116,7 @@ def _get_cached(keyword: str):
         conn.close()
 
 def _set_cached(keyword: str, terms: list):
+    _init_cache_db()
     conn = sqlite3.connect(MAPPING_CACHE_PATH)
     try:
         conn.execute("INSERT OR REPLACE INTO mapping_cache (keyword, terms, cached_at) VALUES (?, ?, ?)",
