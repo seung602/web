@@ -345,9 +345,12 @@ def _overall(oy, ds):
 # ============================================================
 # AI 트렌드 분석
 # ============================================================
+# ============================================================
+# AI 트렌드 분석 (기간별 요약 + 근거, 다국어 지원)
+# ============================================================
 AI_CACHE_PATH = Path("/tmp/ai_analysis_cache.db")
 AI_TTL_HOURS = 6
-_LANG_NAMES = {"ko": "Korean", "en": "English", "ar": "Arabic"}
+_LANG_NAMES = {"ko": "Korean (한국어)", "en": "English", "ar": "Arabic (العربية)"}
 
 def _init_ai_cache():
     conn = sqlite3.connect(AI_CACHE_PATH)
@@ -392,17 +395,18 @@ def _gather_ai_context(tconn, cconn):
         ctx[period] = {
             "top_keywords": [t.get("keyword") for t in trends],
             "oliveyoung_top": [f"{p.get('product_name')}({p.get('brand') or ''})" for p in oy],
-            "daiso_top": [f"{p.get('product_name')} / 리뷰증가 +{p.get('review_growth') or 0}" for p in ds],
+            "daiso_top": [f"{p.get('product_name')}" for p in ds],
             "rank_rising": [f"{h.get('product_name')} (+{h.get('rank_change')})" for h in hl],
         }
     return ctx
 
 def _fallback_analysis(ctx, lang):
+    """Gemini가 없으면 데이터 기반으로 간단 요약 생성"""
     L = {
-        "ko": {"kw": "주요 키워드", "oy": "올리브영 강세", "ds": "다이소 리뷰 상승", "rise": "순위 급등"},
-        "en": {"kw": "Top keywords", "oy": "Olive Young strong", "ds": "Daiso review surge", "rise": "Rank risers"},
-        "ar": {"kw": "كلمات رئيسية", "oy": "قوي في أوليف يونغ", "ds": "ارتفاع مراجعات دايسو", "rise": "صاعدو التصنيف"},
-    }.get(lang, {"kw": "Top keywords", "oy": "Olive Young strong", "ds": "Daiso review surge", "rise": "Rank risers"})
+        "ko": {"kw": "주요 키워드", "oy": "올리브영 강세", "ds": "다이소 인기", "rise": "순위 급등"},
+        "en": {"kw": "Top keywords", "oy": "Olive Young strong", "ds": "Daiso popular", "rise": "Rank risers"},
+        "ar": {"kw": "كلمات رئيسية", "oy": "قوي في أوليف يونغ", "ds": "شائع في دايسو", "rise": "صاعدو التصنيف"},
+    }.get(lang, {"kw": "Top keywords", "oy": "Olive Young strong", "ds": "Daiso popular", "rise": "Rank risers"})
     out = {}
     for period, c in ctx.items():
         kw = ", ".join(filter(None, c["top_keywords"][:5])) or "-"
@@ -422,9 +426,14 @@ def _ask_gemini_analysis(ctx, lang_name):
     shape = '{"daily":{"summary":"...","evidence":["..."]},"weekly":{"summary":"...","evidence":["..."]},"monthly":{"summary":"...","evidence":["..."]}}'
     prompt = (
         "You are a K-beauty market analyst advising a reseller of Korean cosmetics in the Netherlands.\n"
+        f"### LANGUAGE RULE (MOST IMPORTANT): The ENTIRE output MUST be written in {lang_name}. "
+        f"Every sentence, every summary, every bullet point must be in {lang_name}. "
+        f"Translate Korean product names and keywords into {lang_name}, keeping the original Korean in parentheses only when useful "
+        "(e.g. 'Sunscreen (선크림)', 'واقي الشمس (선크림)').\n"
         "Using ONLY the data provided, write a short actionable analysis for each period (daily, weekly, monthly).\n"
-        'For each period provide: "summary" (2-3 sentences) and "evidence" (2-4 bullet strings citing concrete data points).\n'
-        f"Write everything in {lang_name}. Return ONLY valid JSON in this shape:\n{shape}\n\n"
+        'For each period provide: "summary" (2-3 sentences: what is trending, what to consider stocking) and '
+        '"evidence" (2-4 bullet strings citing concrete data points: keyword/product names, numbers).\n'
+        f"Return ONLY valid JSON in this shape:\n{shape}\n\n"
         f"DATA:\n{json.dumps(ctx, ensure_ascii=False)}"
     )
     try:
@@ -444,7 +453,8 @@ def ai_analysis(lang: str = Query("ko")):
     if lang not in _LANG_NAMES:
         lang = "ko"
     _init_ai_cache()
-    key = f"{lang}_{datetime.now().strftime('%Y-%m-%d')}"
+    # v2 접두어: 기존 한국어 캐시와 충돌하지 않도록 무효화
+    key = f"v2_{lang}_{datetime.now().strftime('%Y-%m-%d')}"
     cached = _ai_cache_get(key)
     if cached:
         return {"lang": lang, "source": "cache", "analysis": cached}
@@ -454,9 +464,13 @@ def ai_analysis(lang: str = Query("ko")):
     finally:
         tconn.close()
         cconn.close()
-    analysis = _ask_gemini_analysis(ctx, _LANG_NAMES[lang]) or _fallback_analysis(ctx, lang)
+    analysis = _ask_gemini_analysis(ctx, _LANG_NAMES[lang])
+    source = "gemini"
+    if analysis is None:
+        analysis = _fallback_analysis(ctx, lang)
+        source = "auto"
     _ai_cache_set(key, analysis)
-    return {"lang": lang, "source": "gemini", "analysis": analysis}
+    return {"lang": lang, "source": source, "analysis": analysis}
 
 # ============================================================
 # 엔드포인트
