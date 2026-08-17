@@ -238,7 +238,6 @@ def _oy_highlights(conn, period, limit=5):
         logging.warning(f"oy_highlights failed: {e}")
         return []
 
-# ---------- 다이소: 리뷰 증가량 기반 (화장품 카테고리만) ----------
 def _daiso_by_reviews(conn, period, limit=30):
     try:
         latest, past = _catalog_range(conn, period)
@@ -274,7 +273,6 @@ def _daiso_by_reviews(conn, period, limit=30):
         logging.warning(f"daiso_by_reviews failed: {e}")
         return []
 
-# ---------- 다이소 신상 (is_new 플래그 기반) ----------
 def _daiso_new_arrivals(conn, limit=10):
     try:
         if "is_new" not in _cols(conn, "products"):
@@ -298,7 +296,6 @@ def _daiso_new_arrivals(conn, limit=10):
         logging.warning(f"daiso_new_arrivals failed: {e}")
         return []
 
-# ---------- 다이소 하이라이트 = 리뷰폭주 + 신상 혼합 ----------
 def _daiso_highlights(conn, period, limit=5):
     growth = _daiso_by_reviews(conn, period, limit)
     new = _daiso_new_arrivals(conn, limit)
@@ -347,9 +344,6 @@ def _overall(oy, ds):
     out.sort(key=lambda x: x["final_score"], reverse=True)
     return out
 
-# ============================================================
-# AI 트렌드 분석 (기간별 요약 + 근거, 다국어 지원)
-# ============================================================
 AI_CACHE_PATH = Path("/tmp/ai_analysis_cache.db")
 AI_TTL_HOURS = 6
 _LANG_NAMES = {"ko": "Korean (한국어)", "en": "English", "ar": "Arabic (العربية)"}
@@ -403,7 +397,6 @@ def _gather_ai_context(tconn, cconn):
     return ctx
 
 def _fallback_analysis(ctx, lang):
-    """Gemini가 없으면 데이터 기반으로 간단 요약 생성"""
     L = {
         "ko": {"kw": "주요 키워드", "oy": "올리브영 강세", "ds": "다이소 인기", "rise": "순위 급등"},
         "en": {"kw": "Top keywords", "oy": "Olive Young strong", "ds": "Daiso popular", "rise": "Rank risers"},
@@ -455,7 +448,6 @@ def ai_analysis(lang: str = Query("ko")):
     if lang not in _LANG_NAMES:
         lang = "ko"
     _init_ai_cache()
-    # v3: 옛 캐시(폴백 포함) 완전 무효화
     key = f"v3_{lang}_{datetime.now().strftime('%Y-%m-%d')}"
     cached = _ai_cache_get(key)
     if cached:
@@ -471,7 +463,6 @@ def ai_analysis(lang: str = Query("ko")):
     if analysis is None:
         analysis = _fallback_analysis(ctx, lang)
         source = "auto"
-    # Gemini 성공분만 캐시 → 폴백은 다음 요청에서 재시도
     if source == "gemini":
         _ai_cache_set(key, {"source": source, "analysis": analysis})
     return {"lang": lang, "source": source, "analysis": analysis}
@@ -481,55 +472,38 @@ def ai_analysis(lang: str = Query("ko")):
 # ============================================================
 @router.get("/search")
 def search_products(
-    q: str = Query(..., description="Search query (e.g., sunstick, Niacinamide, 썬스틱)"),
+    q: str = Query(..., description="Search query"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Items per page")
 ):
-    """
-    다국어 검색어(성분, 카테고리, 상품명)를 받아 자체 인기 랭킹순으로 정렬된 상품을 페이지네이션하여 반환합니다.
-    """
     if not q.strip():
         return {"keywords": [], "query": "", "products": [], "has_more": False, "total_count": 0}
 
-    # 1. 키워드 확장 (다국어 -> 한국어 동의어/성분명 매핑)
     terms = _expand_keyword(q)
-    
     conn = get_catalog_db()
     try:
-        # 서브쿼리: 최신 가격 및 랭킹, 리뷰수 가져오기
         extra = """, (SELECT s.price FROM product_snapshots s WHERE s.product_id = products.product_id
                       ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS price,
                      (SELECT s.sale_price FROM product_snapshots s WHERE s.product_id = products.product_id
                       ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS sale_price,
                      (SELECT r.rank_num FROM daily_rankings r WHERE r.product_id = products.product_id
                       ORDER BY r.ranking_date DESC LIMIT 1) AS latest_rank"""
-        
-        has_review = "review_count" in _cols(conn, "product_snapshots")
-        if has_review:
+        if "review_count" in _cols(conn, "product_snapshots"):
             extra += """, (SELECT s.review_count FROM product_snapshots s WHERE s.product_id = products.product_id
                            ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS review_count"""
 
         products, seen = [], set()
-        
-        # 2. 동적 WHERE 절 생성 (상품명, 브랜드, 카테고리 검색)
         conditions = []
         params = []
         for term in terms:
-            # 사용자가 원하신 성분/카테고리/상품명 검색을 위해 brand와 category도 LIKE 조건에 추가
             conditions.append("(LOWER(product_name) LIKE LOWER(?) OR LOWER(brand) LIKE LOWER(?) OR LOWER(category) LIKE LOWER(?))")
             params.extend([f"%{term}%", f"%{term}%", f"%{term}%"])
             
         where_clause = " OR ".join(conditions)
+        sql = f"SELECT product_id, source, brand, product_name, product_url, category {extra} FROM products WHERE {where_clause}"
         
-        sql = f"""
-            SELECT product_id, source, brand, product_name, product_url, category {extra}
-            FROM products WHERE {where_clause}
-        """
-        
-        # 3. 데이터 필터링 (다이소 기타용품 제외)
         for r in _rows(conn, sql, params):
-            if (r.get("source") or "").lower() == "daiso" \
-                    and (r.get("category") or "") not in DAISO_COSMETIC_CATEGORIES:
+            if (r.get("source") or "").lower() == "daiso" and (r.get("category") or "") not in DAISO_COSMETIC_CATEGORIES:
                 continue
             if r["product_id"] not in seen:
                 seen.add(r["product_id"])
@@ -538,7 +512,6 @@ def search_products(
                     _fix_daiso(r)
                 products.append(r)
 
-        # 4. 자체 인기점수(_pop) 기반 정렬
         def _pop(p):
             score = 0
             if p.get("latest_rank"):
@@ -548,22 +521,14 @@ def search_products(
             
         products.sort(key=_pop, reverse=True)
         
-        # 5. 페이지네이션 적용 (더보기 버튼용)
         total_count = len(products)
         start_idx = (page - 1) * limit
         end_idx = start_idx + limit
         
-        paginated_products = products[start_idx:end_idx]
-        has_more = total_count > end_idx
-
         return {
-            "keywords": terms,
-            "query": q,
-            "total_count": total_count,
-            "page": page,
-            "limit": limit,
-            "has_more": has_more,
-            "products": paginated_products
+            "keywords": terms, "query": q, "total_count": total_count,
+            "page": page, "limit": limit, "has_more": total_count > end_idx,
+            "products": products[start_idx:end_idx]
         }
     finally:
         conn.close()
@@ -615,7 +580,6 @@ def get_keyword_detail(keyword: str):
                 SELECT product_id, source, brand, product_name, product_url, category {extra}
                 FROM products WHERE LOWER(product_name) LIKE LOWER(?)
             """, (f"%{term}%",)):
-                # 다이소 기타용품(면봉·네일 등) 제외
                 if (r.get("source") or "").lower() == "daiso" \
                         and (r.get("category") or "") not in DAISO_COSMETIC_CATEGORIES:
                     continue
@@ -626,7 +590,6 @@ def get_keyword_detail(keyword: str):
                         _fix_daiso(r)
                     products.append(r)
 
-        # 자체 인기점수: 올리브영 최신 랭킹 + 다이소 리뷰 수(존재 시에만)
         def _pop(p):
             score = 0
             if p.get("latest_rank"):
