@@ -5,10 +5,25 @@ import os
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
+from urllib.parse import quote
 from fastapi import APIRouter, Query
 from api.database import get_trend_db, get_catalog_db
 
 router = APIRouter(prefix="/api/app", tags=["App"])
+
+# ============================================================
+# 다이소 URL 재조립 (DB에 옛 URL이 저장돼 있어도 항상 올바른 링크 제공)
+# ============================================================
+DAISO_PDP = "https://www.daisomall.co.kr/pd/pdp/SCR_PDP_0001?pdNo={}"
+DAISO_SEARCH = "https://www.daisomall.co.kr/ssn/search/SearchGoods?searchTerm={}"
+
+def _fix_daiso(row):
+    """다이소 상품 행의 URL을 product_id 기반으로 재조립 + 검색 링크 추가"""
+    pid = row.get("product_id") or ""
+    if pid.startswith("DS_"):
+        row["product_url"] = DAISO_PDP.format(pid[3:])
+    row["search_url"] = DAISO_SEARCH.format(quote(row.get("product_name") or ""))
+    return row
 
 # ============================================================
 # Gemini 한-영 매핑 자동화
@@ -16,9 +31,6 @@ router = APIRouter(prefix="/api/app", tags=["App"])
 MAPPING_CACHE_PATH = Path("/tmp/mapping_cache.db")
 MAPPING_TTL_DAYS = 7
 
-# ============================================================
-# 성분 사전 (서구 성분 키워드 → 한국어 상품명 표현)
-# ============================================================
 INGREDIENT_MAP = {
     "ceramide": ["세라마이드"],
     "retinol": ["레티놀", "레티날"],
@@ -49,7 +61,7 @@ INGREDIENT_MAP = {
     "bakuchiol": ["바쿠치올"],
     "salicylic": ["살리실", "bha"],
     "glycolic": ["글리콜", "aha"],
-    "beta-glucan": ["베타글루칸"],
+    "beta-glucan": ["베글루칸"],
     "heartleaf": ["어성초"],
     "mugwort": ["쑥"],
     "tea tree": ["티트리"],
@@ -64,7 +76,7 @@ INGREDIENT_MAP = {
     "ampoule": ["앰플"],
     "moisturiser": ["크림", "로션", "모이스처", "보습"],
     "moisturizer": ["크림", "로션", "모이스처", "보습"],
-    "sunscreen": ["선크림", "선스크린", "선케어", "자외선차단"],
+    "sunscreen": ["선림", "선스크린", "선케어", "자외선차단"],
     "sunstick": ["선스틱", "선팩", "선케어", "자외선차단"],
     "spf": ["선크림", "선스크린", "자외선차단", "선크림"],
     "barrier": ["장벽", "피부장벽", "배리어"],
@@ -83,7 +95,6 @@ INGREDIENT_MAP = {
     "mask": ["마스크팩", "팩"],
 }
 
-# Gemini 클라이언트 (lazy init)
 _genai_client = None
 
 def _get_genai():
@@ -156,7 +167,7 @@ Examples:
 - retinol → ["레티놀", "레티날", "비타A", "안티에이징"]
 - ceramide → ["세라마이드"]
 - glass skin → ["광채", "글로우", "유리광"]
-- sunscreen → ["선크림", "선스크린", "선케어", "자외선차단"]
+- sunscreen → ["선림", "선스크린", "선케어", "자외선차단"]
 - sunstick → ["선스틱", "선크림", "선팩", "UV차단"]
 Return ONLY a JSON array of Korean strings, nothing else. No markdown, no explanation.
 Keyword: '{keyword}'
@@ -176,17 +187,13 @@ Output:"""
     return None
 
 def _expand_keyword(keyword: str):
-    """한-영 매핑 확장: 성분사전(즉시) → Gemini캐시 → Gemini실시간"""
     kw = (keyword or "").lower()
     terms = [kw]
-    # 1층: 성분 사전
     terms += INGREDIENT_MAP.get(kw, [])
-    # 2층: Gemini 캐시
     cached = _get_cached(kw)
     if cached:
         terms += cached
     else:
-        # 3층: Gemini 실시간
         g = _ask_gemini(kw)
         if g:
             _set_cached(kw, g)
@@ -230,7 +237,6 @@ def _ranking_range(conn, period):
     ).fetchone()["d"]
     return latest, prev
 
-# ---------- 트렌드 키워드 ----------
 def get_trends(conn, period, limit=15):
     try:
         cols = _cols(conn, "trend_scores")
@@ -253,7 +259,6 @@ def get_trends(conn, period, limit=15):
         logging.warning(f"get_trends failed: {e}")
         return []
 
-# ---------- 올리브영 하이라이트 (순위 급등) ----------
 def _oy_highlights(conn, period, limit=5):
     try:
         latest, prev = _ranking_range(conn, period)
@@ -276,14 +281,13 @@ def _oy_highlights(conn, period, limit=5):
         logging.warning(f"oy_highlights failed: {e}")
         return []
 
-# ---------- 다이소 하이라이트/랭킹 (리뷰 증가량) ----------
 def _daiso_by_reviews(conn, period, limit=30):
     try:
         latest, past = _catalog_range(conn, period)
         if not latest:
             return []
         if "review_count" not in _cols(conn, "product_snapshots"):
-            return _rows(conn, """
+            rows = _rows(conn, """
                 SELECT p.product_id, p.product_name, p.brand, p.product_url,
                        s2.price AS price, s2.sale_price AS sale_price,
                        0 AS review_growth, NULL AS review_count
@@ -292,22 +296,23 @@ def _daiso_by_reviews(conn, period, limit=30):
                 WHERE LOWER(p.source) = 'daiso'
                 ORDER BY p.last_catalog_seen_at DESC LIMIT ?
             """, (latest, limit))
-        return _rows(conn, """
-            SELECT p.product_id, p.product_name, p.brand, p.product_url,
-                   s2.price AS price, s2.sale_price AS sale_price,
-                   s2.review_count AS review_count,
-                   (COALESCE(s2.review_count,0) - COALESCE(s1.review_count,0)) AS review_growth
-            FROM products p
-            JOIN product_snapshots s2 ON s2.product_id = p.product_id AND s2.snapshot_date = ?
-            LEFT JOIN product_snapshots s1 ON s1.product_id = p.product_id AND s1.snapshot_date = ?
-            WHERE LOWER(p.source) = 'daiso'
-            ORDER BY review_growth DESC, review_count DESC LIMIT ?
-        """, (latest, past, limit))
+        else:
+            rows = _rows(conn, """
+                SELECT p.product_id, p.product_name, p.brand, p.product_url,
+                       s2.price AS price, s2.sale_price AS sale_price,
+                       s2.review_count AS review_count,
+                       (COALESCE(s2.review_count,0) - COALESCE(s1.review_count,0)) AS review_growth
+                FROM products p
+                JOIN product_snapshots s2 ON s2.product_id = p.product_id AND s2.snapshot_date = ?
+                LEFT JOIN product_snapshots s1 ON s1.product_id = p.product_id AND s1.snapshot_date = ?
+                WHERE LOWER(p.source) = 'daiso'
+                ORDER BY review_growth DESC, review_count DESC LIMIT ?
+            """, (latest, past, limit))
+        return [_fix_daiso(r) for r in rows]
     except Exception as e:
         logging.warning(f"daiso_by_reviews failed: {e}")
         return []
 
-# ---------- 올리브영 랭킹 (누적 점수) ----------
 def _oy_rankings(conn, period, limit=30):
     try:
         latest, _ = _ranking_range(conn, period)
@@ -364,37 +369,4 @@ def get_dashboard(period: str = Query("daily")):
             "highlights": {
                 "oliveyoung": _oy_highlights(cconn, period, 5),
                 "daiso": _daiso_by_reviews(cconn, period, 5),
-            },
-            "rankings": {"oliveyoung": oy, "daiso": ds, "overall": _overall(oy, ds)},
-        }
-    finally:
-        tconn.close()
-        cconn.close()
-
-@router.get("/keyword/{keyword}")
-def get_keyword_detail(keyword: str):
-    conn = get_catalog_db()
-    try:
-        terms = _expand_keyword(keyword)
-        has_review = "review_count" in _cols(conn, "product_snapshots")
-        extra = """, (SELECT s.price FROM product_snapshots s WHERE s.product_id = products.product_id
-                      ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS price,
-                     (SELECT s.sale_price FROM product_snapshots s WHERE s.product_id = products.product_id
-                      ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS sale_price"""
-        if has_review:
-            extra += """, (SELECT s.review_count FROM product_snapshots s WHERE s.product_id = products.product_id
-                           ORDER BY s.snapshot_date DESC, s.id DESC LIMIT 1) AS review_count"""
-        products, seen = [], set()
-        for term in terms:
-            for r in _rows(conn, f"""
-                SELECT product_id, source, brand, product_name, product_url, category {extra}
-                FROM products WHERE LOWER(product_name) LIKE LOWER(?)
-            """, (f"%{term}%",)):
-                if r["product_id"] not in seen:
-                    seen.add(r["product_id"])
-                    r["platform_badge"] = "🌿" if (r.get("source") or "").lower() == "oliveyoung" else "💸"
-                    products.append(r)
-        products.sort(key=lambda x: x.get("review_count") or 0, reverse=True)
-        return {"keyword": keyword, "count": len(products), "products": products}
-    finally:
-        conn.close()
+           
