@@ -1,4 +1,5 @@
 import logging
+import math
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Query
@@ -14,25 +15,44 @@ logger = logging.getLogger(__name__)
 PERIOD_DAYS = {"daily": 1, "weekly": 7, "monthly": 30}
 
 
+def _cols(conn, table):
+    try:
+        return {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    except Exception:
+        return set()
+
+
+def _date_col(conn):
+    cols = _cols(conn, "daily_rankings")
+    for c in ("run_date", "ranking_date", "date", "captured_at"):
+        if c in cols:
+            return c
+    return None
+
+
 @router.get("/rankings")
 def get_period_rankings(period: str = Query("daily"), limit: int = Query(30)):
-    """일간/주간/월간 랭킹 + 순위 변동 + 다이소 자체랭킹 반환"""
     days = PERIOD_DAYS.get(period, 1)
     conn = get_catalog_db()
     try:
+        dcol = _date_col(conn)
+        if not dcol:
+            return {"period": period, "insufficient": True, "latest_date": None,
+                    "base_date": None, "rankings": [], "rising": [], "daiso": []}
+
         row = conn.execute(
-            "SELECT MAX(run_date) AS d FROM daily_rankings WHERE source='oliveyoung'"
+            f"SELECT MAX({dcol}) AS d FROM daily_rankings WHERE source='oliveyoung'"
         ).fetchone()
         latest = row["d"] if row else None
         if not latest:
             return {"period": period, "insufficient": True, "latest_date": None,
                     "base_date": None, "rankings": [], "rising": [], "daiso": []}
 
-        latest_d = datetime.strptime(latest, "%Y-%m-%d")
+        latest_d = datetime.strptime(latest[:10], "%Y-%m-%d")
         target = (latest_d - timedelta(days=days)).strftime("%Y-%m-%d")
         base_row = conn.execute(
-            "SELECT MAX(run_date) AS d FROM daily_rankings "
-            "WHERE source='oliveyoung' AND run_date <= ?", (target,)
+            f"SELECT MAX({dcol}) AS d FROM daily_rankings "
+            f"WHERE source='oliveyoung' AND {dcol} <= ?", (target,)
         ).fetchone()
         base = base_row["d"] if base_row and base_row["d"] else None
 
@@ -41,22 +61,25 @@ def get_period_rankings(period: str = Query("daily"), limit: int = Query(30)):
             if base is None:
                 insufficient = True
             else:
-                days_diff = (latest_d - datetime.strptime(base, "%Y-%m-%d")).days
+                days_diff = (latest_d - datetime.strptime(base[:10], "%Y-%m-%d")).days
                 insufficient = days_diff < (days - 2)
 
+        sel_cols = _cols(conn, "daily_rankings")
+        rank_col = "rank_num" if "rank_num" in sel_cols else "rank"
+
         cur = conn.execute(
-            """SELECT r.rank_num, r.product_id, p.brand, p.product_name, p.product_url,
-                      p.price, p.sale_price
-               FROM daily_rankings r LEFT JOIN products p ON p.product_id = r.product_id
-               WHERE r.source='oliveyoung' AND r.run_date=?
-               ORDER BY r.rank_num ASC LIMIT 100""", (latest,)
+            f"""SELECT r.{rank_col} AS rank_num, r.product_id, p.brand, p.product_name, p.product_url,
+                       p.price, p.sale_price
+                FROM daily_rankings r LEFT JOIN products p ON p.product_id = r.product_id
+                WHERE r.source='oliveyoung' AND r.{dcol}=?
+                ORDER BY r.{rank_col} ASC LIMIT 100""", (latest,)
         ).fetchall()
 
         base_map = {}
         if base and not insufficient:
             for b in conn.execute(
-                "SELECT product_id, rank_num FROM daily_rankings "
-                "WHERE source='oliveyoung' AND run_date=?", (base,)
+                f"SELECT product_id, {rank_col} AS rank_num FROM daily_rankings "
+                f"WHERE source='oliveyoung' AND {dcol}=?", (base,)
             ).fetchall():
                 base_map[b["product_id"]] = b["rank_num"]
 
@@ -72,22 +95,75 @@ def get_period_rankings(period: str = Query("daily"), limit: int = Query(30)):
         rising = sorted([r for r in rankings if r["change"]],
                         key=lambda x: -x["change"])[:10]
 
-        daiso = conn.execute(
-            """SELECT product_id, brand, product_name, product_url, price, sale_price, daiso_score
-               FROM products
-               WHERE source='daiso' AND status='ACTIVE' AND daiso_score > 0
-               ORDER BY daiso_score DESC LIMIT 10"""
-        ).fetchall()
+        pcols = _cols(conn, "products")
+        daiso = []
+        if "daiso_score" in pcols:
+            daiso = [dict(d) for d in conn.execute(
+                """SELECT product_id, brand, product_name, product_url, price, sale_price, daiso_score
+                   FROM products
+                   WHERE source='daiso' AND status='ACTIVE' AND daiso_score > 0
+                   ORDER BY daiso_score DESC LIMIT 10"""
+            ).fetchall()]
 
         return {
             "period": period, "insufficient": insufficient,
             "latest_date": latest, "base_date": base,
-            "rankings": rankings[:limit], "rising": rising,
-            "daiso": [dict(d) for d in daiso],
+            "rankings": rankings[:limit], "rising": rising, "daiso": daiso,
         }
     except Exception as e:
         logger.error(f"period rankings error: {e}")
         return {"period": period, "insufficient": True, "latest_date": None,
                 "base_date": None, "rankings": [], "rising": [], "daiso": []}
+    finally:
+        conn.close()
+
+
+@router.get("/products")
+def full_products():
+    """전체 상품(14,000+) + 인기도 점수. 키워드 매칭 & 전체상품 섹션용."""
+    conn = get_catalog_db()
+    try:
+        cols = _cols(conn, "products")
+        want = ["product_id", "source", "brand", "product_name", "product_url",
+                "category", "parent_category", "price", "sale_price",
+                "review_count", "rating", "daiso_score", "is_new", "status"]
+        sel = [c for c in want if c in cols]
+        rows = conn.execute(
+            f"SELECT {','.join(sel)} FROM products WHERE status='ACTIVE'"
+        ).fetchall()
+
+        dcol = _date_col(conn)
+        rank_map = {}
+        if dcol:
+            latest = conn.execute(
+                f"SELECT MAX({dcol}) AS d FROM daily_rankings WHERE source='oliveyoung'"
+            ).fetchone()["d"]
+            if latest:
+                rcol = "rank_num" if "rank_num" in _cols(conn, "daily_rankings") else "rank"
+                for r in conn.execute(
+                    f"SELECT product_id, {rcol} AS rank_num FROM daily_rankings "
+                    f"WHERE source='oliveyoung' AND {dcol}=?", (latest,)
+                ).fetchall():
+                    rank_map[r["product_id"]] = r["rank_num"]
+
+        items = []
+        for r in rows:
+            it = dict(r)
+            rank = rank_map.get(it["product_id"])
+            it["rank"] = rank
+            pop = 0.0
+            if rank:
+                pop = 10000.0 - rank
+            elif it.get("daiso_score"):
+                pop = float(it["daiso_score"])
+            elif it.get("review_count"):
+                pop = math.log10(it["review_count"] + 1) * 10
+            it["pop"] = pop
+            items.append(it)
+
+        return {"total": len(items), "items": items}
+    except Exception as e:
+        logger.error(f"full products error: {e}")
+        return {"total": 0, "items": []}
     finally:
         conn.close()
