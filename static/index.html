@@ -117,4 +117,56 @@
     <div id="sec-daiso-rankings" style="margin-top:40px;">
       <div class="section-header">
         <div>
-          <h2 data-i18n="daisoRankings">🔵 다이소 랭킹
+          <h2 data-i18n="daisoRankings">🔵 다이소 랭킹</h2>
+          <span class="subtitle" data-i18n="daisoRankSub">리뷰·평점 기반 자체 랭킹 TOP 30</span>
+        </div>
+      </div>
+      <div id="daiso-rankings" class="product-grid"></div>
+    </div>
+  </section>
+
+  <section id="ai-tab" class="tab-content">
+    <div class="section-header">
+      <div>
+        <h2 data-i18n="aiTitle">AI 트렌드 분석</h2>
+        <span class="subtitle" data-i18n="aiSub">서구권 소셜·검색 트렌드 기반</span>
+      </div>
+    </div>
+    <div class="ai-card">
+      <h3 data-i18n="aiSummary">📌 요약</h3>
+      <p id="ai-summary" class="ai-summary">...</p>
+      <h3 data-i18n="aiEvidence">🔗 근거</h3>
+      <ul id="ai-evidence" class="ai-evidence"></ul>
+    </div>
+    <div class="ai-card">
+      <h3 data-i18n="aiPopular">🛒 인기 키워드</h3>
+      <p id="ai-popular" class="ai-summary"></p>
+    </div>
+  </section>
+
+  <section id="keywords-tab" class="tab-content">
+    <div class="section-header">
+      <div>
+        <h2 data-i18n="kwTitle">🗂️ 키워드별 전체 상품</h2>
+        <span class="subtitle" data-i18n="kwSub">키워드를 누르면 해당 전체 상품이 보여요</span>
+      </div>
+    </div>
+    <div id="keyword-chips" class="keyword-grid"></div>
+    <div id="keyword-results" class="product-grid" style="margin-top:20px;"></div>
+  </section>
+
+  <section id="allproducts-tab" class="tab-content">
+    <div class="section-header">
+      <div>
+        <h2 data-i18n="allProducts">🛍️ 전체상품</h2>
+        <span class="subtitle" data-i18n="allProductsSub">대카테고리별 · 인기순 정렬</span>
+      </div>
+    </div>
+    <div id="allproducts-container"></div>
+  </section>
+
+</main>
+<script src="/static/keywords.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
