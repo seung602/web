@@ -17,7 +17,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 .tab-btn.active { background: #111; color: #fff; border-color: #111; font-weight: bold; }
 
 .global-period { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
-.period-label { font-size: 12px; color: #888; font-weight: bold; margin-right: 4px; }
 
 .search-wrapper { position: relative; padding: 16px; max-width: 800px; margin: 0 auto; }
 .search-input-box { display: flex; align-items: center; background: #fff; border: 2px solid #ddd; border-radius: 30px; padding: 10px 18px; }
@@ -36,10 +35,19 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 .tab-content { display: none; padding: 16px 4px; }
 .tab-content.active { display: block; animation: fadeIn .3s; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-.section-header { margin-bottom: 14px; }
+.section-header { margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .section-header h2 { font-size: 20px; }
 .subtitle { color: #888; font-size: 13px; display: block; margin-top: 4px; }
 .close-btn { border: none; background: #eee; border-radius: 50%; width: 32px; height: 32px; font-size: 16px; cursor: pointer; }
+
+/* ✅ 2단 분할 (모바일 세로 / PC 가로) */
+.duo-section { display: grid; grid-template-columns: 1fr; gap: 28px; }
+@media (min-width: 900px) { .duo-section { grid-template-columns: 1fr 1fr; } }
+.duo-col { min-width: 0; }
+
+.more-btn { border: none; background: #111; color: #fff; border-radius: 16px;
+  padding: 7px 14px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.more-btn:hover { background: #333; }
 
 .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 
@@ -49,10 +57,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .keyword-chip:hover { background: #f1f3f5; }
 .other-chip { background: #f1f3f5; border-style: dashed; }
-
-.filter-switch { display: flex; gap: 8px; margin-bottom: 14px; }
-.filter-btn { padding: 7px 18px; border: 1px solid #ddd; border-radius: 18px; background: #fff; cursor: pointer; font-size: 13px; }
-.filter-btn.active { background: #111; color: #fff; border-color: #111; font-weight: bold; }
 
 .rank-no { font-size: 13px; font-weight: 800; margin-bottom: 6px; }
 .rank-no.olive { color: #2e7d32; }
@@ -83,6 +87,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 
 .result-section { background: #fffbe8; border: 1px solid #ffe08a; border-radius: 12px; padding: 16px; margin-bottom: 24px; }
 .loading { color: #888; padding: 20px; text-align: center; }
-
 .insufficient { padding: 24px; text-align: center; color: #888; font-size: 14px;
   background: #fff; border: 1px dashed #ddd; border-radius: 12px; grid-column: 1 / -1; }
+
+.cat-section { margin-top: 28px; }
+.cat-title { font-size: 16px; font-weight: 800; margin-bottom: 12px; }
+.cat-count { color: #888; font-size: 12px; font-weight: 600; }
