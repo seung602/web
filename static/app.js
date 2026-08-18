@@ -6,65 +6,65 @@ const API = {
   changes: '/api/app/changes',
   rankingsToday: '/api/catalog/rankings/today',
   products: '/api/catalog/products',
+  periodRankings: p => `/api/periods/rankings?period=${p}`,
 };
 
 const I18N = {
-  ko: { dashboard:'📊 대시보드', ai:'🤖 AI 트렌드', ingredients:'🌿 성분별',
-    search:'상품명·브랜드·성분 검색 (예: PDRN, 세라마이드)',
-    rising:'🔥 올리브영 순위 급등', risingSub:'어제 대비 랭킹 변동',
+  ko: { dashboard:'📊 대시보드', ai:'🤖 AI 트렌드', keywordsTab:'🗂️ 키워드별',
+    search:'상품명·브랜드 검색 (예: PDRN, 세라마이드)',
+    rising:'🔥 올리브영 순위 급등',
     trends:'🌿 트렌드 키워드', trendsSub:'키워드를 누르면 매칭 상품이 보여요',
-    daiso:'💎 다이소 뷰티 베스트', daisoSub:'가성비 인기 상품',
-    rankings:'🏆 전체 상품 킹', rankingsSub:'종합·올리브영·다이소',
+    daiso:'💎 다이소 뷰티 베스트', daisoSub:'리뷰·평점 기반 자체 랭킹',
+    rankings:'🏆 전체 상품 랭킹', rankingsSub:'종합·올리브영·다이소',
     all:'종합', olive:'올리브영', daiso:'다이소',
-    aiTitle:'AI 트렌드 분석', aiSub:'기간을 선택하세요',
-    daily:'일간', weekly:'주간', monthly:'월간',
+    daily:'일간', weekly:'주간', monthly:'월간', periodLabel:'분석 기간',
+    aiTitle:'AI 트렌드 분석', aiSub:'상단에서 기간을 선택하세요',
     aiSummary:'📌 요약', aiEvidence:'🔗 근거', aiPopular:'🛒 인기 상품',
-    ingTitle:'🌿 성분별 상품 보기', ingSub:'성분을 선택하세요' },
-  en: { dashboard:'📊 Dashboard', ai:'🤖 AI Trends', ingredients:'🌿 Ingredients',
-    search:'Search products, brands, ingredients',
-    rising:'🔥 Olive Young Rising', risingSub:'Rank change vs yesterday',
+    kwTitle:'🗂️ 키워드별 전체 상품', kwSub:'키워드를 누르면 해당 전체 상품이 보여요',
+    other:'기타',
+    vsDaily:'어제 대비 랭킹 변동', vsWeekly:'7일 전 대비 랭킹 변동', vsMonthly:'30일 전 대비 랭킹 변동',
+    insufficient:'📉 데이터 부족',
+    insufficientDesc:'해당 기간 분석을 위한 히스토리 데이터가 아직 충분히 쌓이지 않았어요. 데이터를 더 모은 뒤 다시 확인해 주세요!' },
+  en: { dashboard:'📊 Dashboard', ai:'🤖 AI Trends', keywordsTab:'🗂️ By Keyword',
+    search:'Search products, brands',
+    rising:'🔥 Olive Young Rising',
     trends:'🌿 Trend Keywords', trendsSub:'Tap a keyword to see matched products',
-    daiso:'💎 Daiso Best', daisoSub:'Popular budget picks',
+    daiso:'💎 Daiso Best', daisoSub:'Own ranking by reviews & ratings',
     rankings:'🏆 Top Rankings', rankingsSub:'All · Olive Young · Daiso',
     all:'All', olive:'Olive Young', daiso:'Daiso',
-    aiTitle:'AI Trend Analysis', aiSub:'Select a period',
-    daily:'Daily', weekly:'Weekly', monthly:'Monthly',
-    aiSummary:'📌 Summary', aiEvidence:'🔗 Evidence', aiPopular:'🛒 Popular products',
-    ingTitle:'🌿 Browse by Ingredient', ingSub:'Select an ingredient' },
-  ar: { dashboard:'📊 الرئيسية', ai:'🤖 تحليل AI', ingredients:'🌿 المكوّنات',
-    search:'ابحث عن منتج أو علامة أو مكوّن',
-    rising:'🔥 الأكثر صعوداً', risingSub:'تغيّر الترتيب عن الأمس',
+    daily:'Daily', weekly:'Weekly', monthly:'Monthly', periodLabel:'Period',
+    aiTitle:'AI Trend Analysis', aiSub:'Select a period above',
+    aiSummary:'📌 Summary', aiEvidence:'🔗 Evidence', aiPopular:'🛒 Popular',
+    kwTitle:'🗂️ All Products by Keyword', kwSub:'Tap a keyword to view all products',
+    other:'Others',
+    vsDaily:'Rank change vs yesterday', vsWeekly:'Rank change vs 7 days ago', vsMonthly:'Rank change vs 30 days ago',
+    insufficient:'📉 Not enough data',
+    insufficientDesc:'Not enough history data for this period yet. Please check back after more data is collected!' },
+  ar: { dashboard:'📊 الرئيسية', ai:'🤖 تحليل AI', keywordsTab:'🗂️ حسب الكلمة',
+    search:'ابحث عن منتج أو علامة',
+    rising:'🔥 الأكثر صعوداً',
     trends:'🌿 كلمات الاتجاه', trendsSub:'اضغط لعرض المنتجات المطابقة',
-    daiso:'💎 أفضل دايسو', daisoSub:'منتجات اقتصادية شائعة',
+    daiso:'💎 أفضل دايسو', daisoSub:'ترتيب خاص حسب التقييمات',
     rankings:'🏆 أفضل الترتيب', rankingsSub:'الكل · أوليف يونغ · دايسو',
     all:'الكل', olive:'أوليف يونغ', daiso:'دايسو',
-    aiTitle:'تحليل الاتجاهات بالذكاء الاصطناعي', aiSub:'اختر الفترة',
-    daily:'يومي', weekly:'أسبوعي', monthly:'شهري',
+    daily:'يومي', weekly:'أسبوعي', monthly:'شهري', periodLabel:'الفترة',
+    aiTitle:'تحليل الاتجاهات بالذكاء الاصطناعي', aiSub:'اختر الفترة من الأعلى',
     aiSummary:'📌 ملخص', aiEvidence:'🔗 أدلة', aiPopular:'🛒 منتجات شائعة',
-    ingTitle:'🌿 تصفح حسب المكوّن', ingSub:'اختر مكوّناً' }
+    kwTitle:'🗂️ كل المنتجات حسب الكلمة', kwSub:'اضغط لعرض كل المنتجات',
+    other:'أخرى',
+    vsDaily:'تغيّر الترتيب عن الأمس', vsWeekly:'تغيّر الترتيب عن ٧ أيام', vsMonthly:'تغيّر الترتيب عن ٣٠ يوماً',
+    insufficient:'📉 بيانات غير كافية',
+    insufficientDesc:'لا توجد بيانات تاريخية كافية لهذه الفترة بعد. يرجى التحقق لاحقاً بعد جمع المزيد من البيانات!' }
 };
-
-const INGREDIENTS = [
-  { label:'PDRN', keys:['pdrn','디엔에이','연어'] },
-  { label:'레티놀', keys:['레티놀','retinol'] },
-  { label:'세라마이드', keys:['세라마이드','ceramide'] },
-  { label:'병풀/시카', keys:['병풀','시카','센텔라','cica','centella'] },
-  { label:'나이아신아마이드', keys:['나이아신아마이드','niacinamide'] },
-  { label:'히알루론산', keys:['히알루론','hyaluron'] },
-  { label:'비타민C', keys:['비타씨','비타민 c','vitamin c','아스코빅'] },
-  { label:'기타', keys:[] },
-];
 
 const isArr = a => Array.isArray(a) && a.length > 0;
 const firstList = (...a) => { for (const x of a) if (isArr(x)) return x; return []; };
 const getList = (o, ...ks) => { if (!o || typeof o !== 'object') return []; for (const k of ks) if (isArr(o[k])) return o[k]; return []; };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-
 const F = {
   name: p => p.product_name || p.name || '',
   brand: p => p.brand || '',
   url: p => p.product_url || p.url || '#',
-  /* ✅ 출처 판별 강화: source 없으면 상품 ID/URL로 자동 판별 */
   source: p => {
     let s = String(p.source || '').toLowerCase();
     if (s) return s;
@@ -74,7 +74,6 @@ const F = {
     if (id.startsWith('DS') || url.includes('daiso')) return 'daiso';
     return '';
   },
-  /* ✅ 가격 방어: 999(수집 오류 placeholder)는 숨김 */
   price: p => {
     let v = p.sale_price ?? p.price ?? null;
     if (v == null) return null;
@@ -84,14 +83,16 @@ const F = {
   },
   rank: p => (p.rank ?? p.rank_num ?? null),
 };
+const kwText = p => (F.name(p) + ' ' + F.brand(p) + ' ' + (p.category || '')).toLowerCase();
 
 let currentLang = 'ko', currentPeriod = 'daily', rankFilter = 'all';
 let fuse = null, productPool = [], aiData = null, trendItems = [];
-let allRankings = [], oliveList = [], daisoList = [];
+let oliveList = [], daisoList = [];
 
-document.addEventListener('DOMContentLoaded', () => {
-  setupTabs(); setupLang(); setupPeriod(); setupFilter(); setupSearch(); renderIngredientChips();
-  loadDashboard(); loadProductsPool(); loadAI();
+document.addEventListener('DOMContentLoaded', async () => {
+  setupTabs(); setupLang(); setupPeriod(); setupFilter(); setupSearch(); renderKeywordChips();
+  await Promise.all([loadAI(), loadProductsPool()]);
+  await loadDashboard();
 });
 
 /* ========== 설정 ========== */
@@ -104,10 +105,11 @@ function setupTabs() {
   }));
 }
 function setupLang() {
-  document.querySelectorAll('.lang-btn').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.lang-btn').forEach(btn => btn.addEventListener('click', async () => {
     currentLang = btn.dataset.lang;
     document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b === btn));
-    applyLang(); loadAI();
+    applyLang(); renderKeywordChips();
+    await loadAI(); showPeriod(); renderTrendKeywordsForPeriod();
   }));
 }
 function applyLang() {
@@ -121,7 +123,7 @@ function setupPeriod() {
   document.querySelectorAll('.period-btn').forEach(btn => btn.addEventListener('click', () => {
     currentPeriod = btn.dataset.period;
     document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b === btn));
-    showPeriod();
+    showPeriod(); loadDashboard();
   }));
 }
 function setupFilter() {
@@ -132,63 +134,100 @@ function setupFilter() {
   }));
 }
 
-/* ========== 데이터 로드 ========== */
+/* ========== 데이터 ========== */
 async function safeJson(url) { try { const r = await fetch(url); return r.ok ? await r.json() : null; } catch (e) { return null; } }
 
-async function loadDashboard() {
-  const [dash, changes, ranks] = await Promise.all([
-    safeJson(API.dashboard), safeJson(API.changes), safeJson(API.rankingsToday)
-  ]);
-
-  const rising = firstList(getList(changes,'items','changes','rising'), getList(dash,'rising_products','rising','changes'));
-  renderRising(rising);
-
-  trendItems = firstList(getList(dash,'top_trends','trends','keywords','trend_keywords'));
-  renderTrendKeywords(trendItems);
-
-  allRankings = firstList(getList(ranks,'items','rankings'), getList(dash,'top_rankings','rankings'));
-  oliveList = allRankings.filter(p => F.source(p).includes('olive'));
-  daisoList = allRankings.filter(p => F.source(p).includes('daiso'));
-  if (!daisoList.length) daisoList = getList(dash,'daiso_picks','daiso');
-
-  renderDaiso();
-  renderRankings();
-  toggleSec('sec-rankings', allRankings.length || daisoList.length);
-}
-function renderDaiso() {
-  renderGrid(document.getElementById('daiso-best'), daisoList.slice(0, 10), p => rankBadgeHtml(p));
-  toggleSec('sec-daiso', daisoList.length);
-}
-function toggleSec(id, has) { const el = document.getElementById(id); if (el) el.style.display = has ? '' : 'none'; }
-
-/* ✅ 다이소 폴백: 랭킹에 없으면 상품 목록에서 자동 추출 */
-async function loadProductsPool() {
-  const data = await safeJson(API.products);
-  productPool = Array.isArray(data) ? data : firstList(getList(data,'items','products','results'));
-  if (window.Fuse && productPool.length) fuse = new Fuse(productPool, { keys: ['product_name','brand'], threshold: 0.35 });
-
-  let refreshed = false;
-  if (!daisoList.length) {
-    daisoList = productPool.filter(p => F.source(p).includes('daiso')).slice(0, 50);
-    if (daisoList.length) { renderDaiso(); refreshed = true; }
-  }
-  if (!oliveList.length) {
-    oliveList = productPool.filter(p => F.source(p).includes('olive'));
-    if (oliveList.length) refreshed = true;
-  }
-  if (refreshed) renderRankings();
-}
-
 async function loadAI() {
-  document.getElementById('ai-summary').textContent = '...';
   const data = await safeJson(API.ai(currentLang));
   if (data) { aiData = data; showPeriod(); document.getElementById('ai-popular').textContent = data.popular || ''; }
 }
 function showPeriod() {
-  if (!aiData) return;
-  const d = aiData[currentPeriod] || {};
-  document.getElementById('ai-summary').textContent = d.summary || '-';
+  const t = I18N[currentLang] || I18N.ko;
+  const d = (aiData || {})[currentPeriod];
+  if (!d || !d.summary) {
+    document.getElementById('ai-summary').textContent = `${t.insufficient} - ${t.insufficientDesc}`;
+    document.getElementById('ai-evidence').innerHTML = '';
+    return;
+  }
+  document.getElementById('ai-summary').textContent = d.summary;
   document.getElementById('ai-evidence').innerHTML = firstList(d.evidence).map(e => `<li>${esc(typeof e === 'string' ? e : JSON.stringify(e))}</li>`).join('');
+}
+
+async function loadDashboard() {
+  const t = I18N[currentLang] || I18N.ko;
+  document.getElementById('rising-sub').textContent = t['vs' + currentPeriod.charAt(0).toUpperCase() + currentPeriod.slice(1)] || '';
+
+  const data = await safeJson(API.periodRankings(currentPeriod));
+  if (data && (isArr(data.rankings) || isArr(data.daiso) || data.insufficient !== undefined)) {
+    oliveList = (data.rankings || []).map(p => ({ ...p, source: 'oliveyoung' }));
+    daisoList = (data.daiso || []).map(p => ({ ...p, source: 'daiso' }));
+    if (data.insufficient) {
+      document.getElementById('olive-rising').innerHTML = `<p class="insufficient">📉 ${esc(t.insufficient)} - ${esc(t.insufficientDesc)}</p>`;
+      toggleSec('sec-rising', true);
+    } else {
+      renderRising(data.rising || []);
+    }
+  } else {
+    const [changes, ranks] = await Promise.all([safeJson(API.changes), safeJson(API.rankingsToday)]);
+    oliveList = firstList(getList(ranks,'items','rankings')).map(p => ({ ...p, source: F.source(p) || 'oliveyoung' }));
+    daisoList = oliveList.filter(p => F.source(p).includes('daiso'));
+    renderRising(firstList(getList(changes,'items','changes','rising')));
+  }
+
+  renderGrid(document.getElementById('daiso-best'), daisoList.slice(0, 10), p => rankBadgeHtml(p));
+  toggleSec('sec-daiso', daisoList.length);
+  renderRankings();
+  toggleSec('sec-rankings', oliveList.length || daisoList.length);
+  renderTrendKeywordsForPeriod();
+}
+function toggleSec(id, has) { const el = document.getElementById(id); if (el) el.style.display = has ? '' : 'none'; }
+
+async function loadProductsPool() {
+  const data = await safeJson(API.products);
+  productPool = Array.isArray(data) ? data : firstList(getList(data,'items','products','results'));
+  if (window.Fuse && productPool.length) fuse = new Fuse(productPool, { keys: ['product_name','brand'], threshold: 0.35 });
+  if (!daisoList.length) {
+    daisoList = productPool.filter(p => F.source(p).includes('daiso')).slice(0, 50);
+    renderGrid(document.getElementById('daiso-best'), daisoList.slice(0, 10), p => rankBadgeHtml(p));
+    toggleSec('sec-daiso', daisoList.length);
+  }
+  if (!oliveList.length) oliveList = productPool.filter(p => F.source(p).includes('olive'));
+}
+
+/* ========== 기간별 트렌드 키워드 ========== */
+function parseKeywordsFromSummary(summary) {
+  const m = String(summary || '').match(/(?:주요\s*키워드|key\s*keywords?|الكلمات\s*الرئيسية)\s*[:：]\s*([^|]+)/i);
+  if (!m) return [];
+  return m[1].split(/[,،]/).map(s => s.trim()).filter(Boolean).map(k => ({ keyword: k }));
+}
+function renderTrendKeywordsForPeriod() {
+  const t = I18N[currentLang] || I18N.ko;
+  let items = [];
+  if (currentPeriod === 'daily') {
+    items = trendItems;
+    if (!items.length && aiData) items = parseKeywordsFromSummary((aiData.daily || {}).summary);
+    if (!items.length) {
+      safeJson(API.dashboard).then(d => {
+        trendItems = firstList(getList(d,'top_trends','trends','keywords','trend_keywords'));
+        drawTrendChips(trendItems);
+      });
+      return;
+    }
+  } else {
+    items = parseKeywordsFromSummary((aiData?.[currentPeriod] || {}).summary);
+    if (!items.length) {
+      document.getElementById('trend-keywords').innerHTML = `<p class="insufficient">📉 ${esc(t.insufficient)} - ${esc(t.insufficientDesc)}</p>`;
+      toggleSec('sec-trends', true);
+      return;
+    }
+  }
+  drawTrendChips(items);
+}
+function drawTrendChips(items) {
+  document.getElementById('trend-keywords').innerHTML = items.map(k =>
+    `<div class="keyword-chip" onclick='onKeywordClick(${JSON.stringify(k.keyword || k.name || k).replace(/'/g,"&#39;")})'>#${esc(k.keyword || k.name || k)}</div>`
+  ).join('');
+  toggleSec('sec-trends', items.length);
 }
 
 /* ========== 렌더링 ========== */
@@ -223,27 +262,23 @@ function renderRising(items) {
   }).join('') || '<p class="loading">데이터 없음</p>';
   toggleSec('sec-rising', items.length);
 }
-function renderTrendKeywords(items) {
-  document.getElementById('trend-keywords').innerHTML = items.map((k, i) =>
-    `<div class="keyword-chip" onclick="onKeywordClick(${i})">#${esc(k.keyword || k.name || k)}</div>`).join('');
-  toggleSec('sec-trends', items.length);
-}
 function renderRankings() {
   let items;
   if (rankFilter === 'olive') items = oliveList;
   else if (rankFilter === 'daiso') items = daisoList;
-  else items = (oliveList.length || daisoList.length) ? [...oliveList, ...daisoList] : allRankings;
+  else items = (oliveList.length || daisoList.length) ? [...oliveList, ...daisoList] : [];
   renderGrid(document.getElementById('all-rankings'), items.slice(0, 30), p => rankBadgeHtml(p));
 }
 
-async function onKeywordClick(i) {
-  const item = trendItems[i] || {};
-  const kw = item.keyword || item.name || '';
-  let products = firstList(item.products);
+async function onKeywordClick(kw) {
+  let products = [];
+  const t = trendItems.find(x => (x.keyword || x.name) === kw);
+  if (t) products = firstList(t.products);
   if (!products.length) {
     const d = await safeJson(API.keyword(kw));
     products = firstList(getList(d,'products','items','results'));
   }
+  if (!products.length && fuse) products = fuse.search(kw).slice(0, 20).map(r => r.item);
   document.getElementById('keyword-match-title').textContent = `🌿 #${kw}`;
   renderGrid(document.getElementById('keyword-match-grid'), products);
   const sec = document.getElementById('keyword-match');
@@ -284,17 +319,17 @@ async function doSearch(q) {
 }
 function closeSearchResults() { document.getElementById('search-results').style.display = 'none'; }
 
-/* ========== 성분별 ========== */
-function renderIngredientChips() {
-  document.getElementById('ingredient-chips').innerHTML = INGREDIENTS.map((ing, i) =>
-    `<div class="keyword-chip" onclick="onIngredientClick(${i})">${esc(ing.label)}</div>`).join('');
+/* ========== 🚨 키워드별 전체 상품 ========== */
+function renderKeywordChips() {
+  const lang = currentLang;
+  const t = I18N[lang] || I18N.ko;
+  document.getElementById('keyword-chips').innerHTML =
+    KEYWORDS.map((k, i) => `<div class="keyword-chip" onclick="onKeywordTabClick(${i})">${esc(keywordLabel(k, lang))}</div>`).join('') +
+    `<div class="keyword-chip other-chip" onclick="onKeywordTabClick(-1)">${esc(t.other)}</div>`;
 }
-function onIngredientClick(i) {
-  const ing = INGREDIENTS[i];
-  const allKeys = INGREDIENTS.slice(0, -1).flatMap(x => x.keys);
-  const nameOf = p => (F.name(p) + ' ' + F.brand(p)).toLowerCase();
-  const items = ing.keys.length
-    ? productPool.filter(p => ing.keys.some(k => nameOf(p).includes(k.toLowerCase())))
-    : productPool.filter(p => !allKeys.some(k => nameOf(p).includes(k.toLowerCase())));
-  renderGrid(document.getElementById('ingredient-results'), items.slice(0, 30), p => rankBadgeHtml(p));
+function onKeywordTabClick(i) {
+  let items;
+  if (i >= 0) items = productPool.filter(p => matchKeywordText(kwText(p), KEYWORDS[i]));
+  else items = productPool.filter(p => !KEYWORDS.some(kw => matchKeywordText(kwText(p), kw)));
+  renderGrid(document.getElementById('keyword-results'), items.slice(0, 60), p => rankBadgeHtml(p));
 }
