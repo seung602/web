@@ -120,7 +120,7 @@ def get_period_rankings(period: str = Query("daily"), limit: int = Query(30)):
 
 @router.get("/products")
 def full_products():
-    """전체 상품(14,000+) + 인기도 점수. 키워드 매칭 & 전체상품 섹션용."""
+    """전체 상품(14,000+) + 인기도 점수 + 가격 NULL 백필"""
     conn = get_catalog_db()
     try:
         cols = _cols(conn, "products")
@@ -131,6 +131,20 @@ def full_products():
         rows = conn.execute(
             f"SELECT {','.join(sel)} FROM products WHERE status='ACTIVE'"
         ).fetchall()
+
+        # 🚨 가격 NULL 백필: product_snapshots에서 최신 가격 가져오기
+        snap_map = {}
+        try:
+            for r in conn.execute("""
+                SELECT product_id, price, sale_price
+                FROM product_snapshots
+                WHERE price IS NOT NULL
+                ORDER BY id DESC
+            """).fetchall():
+                if r["product_id"] not in snap_map:
+                    snap_map[r["product_id"]] = (r["price"], r["sale_price"])
+        except Exception:
+            pass
 
         dcol = _date_col(conn)
         rank_map = {}
@@ -149,6 +163,10 @@ def full_products():
         items = []
         for r in rows:
             it = dict(r)
+            # 🚨 price NULL이면 snapshot에서 복원
+            if it.get("price") is None and it["product_id"] in snap_map:
+                it["price"], it["sale_price"] = snap_map[it["product_id"]]
+
             rank = rank_map.get(it["product_id"])
             it["rank"] = rank
             pop = 0.0
@@ -163,7 +181,7 @@ def full_products():
 
         return {"total": len(items), "items": items}
     except Exception as e:
-        logger.error(f"full products error: {e}")
+        logger.error(f"full_products error: {e}")
         return {"total": 0, "items": []}
     finally:
         conn.close()
