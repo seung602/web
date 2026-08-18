@@ -1,4 +1,3 @@
-/* ========== API & 유틸 ========== */
 const API = {
   dashboard: '/api/app/dashboard',
   ai: lang => `/api/app/ai?lang=${lang}`,
@@ -15,7 +14,8 @@ const I18N = {
     rising:'🔥 올리브영 순위 급등', risingSub:'어제 대비 랭킹 변동',
     trends:'🌿 트렌드 키워드', trendsSub:'키워드를 누르면 매칭 상품이 보여요',
     daiso:'💎 다이소 뷰티 베스트', daisoSub:'가성비 인기 상품',
-    rankings:'🏆 전체 상품 랭킹', rankingsSub:'올리브영·다이소 통합',
+    rankings:'🏆 전체 상품 킹', rankingsSub:'종합·올리브영·다이소',
+    all:'종합', olive:'올리브영', daiso:'다이소',
     aiTitle:'AI 트렌드 분석', aiSub:'기간을 선택하세요',
     daily:'일간', weekly:'주간', monthly:'월간',
     aiSummary:'📌 요약', aiEvidence:'🔗 근거', aiPopular:'🛒 인기 상품',
@@ -25,7 +25,8 @@ const I18N = {
     rising:'🔥 Olive Young Rising', risingSub:'Rank change vs yesterday',
     trends:'🌿 Trend Keywords', trendsSub:'Tap a keyword to see matched products',
     daiso:'💎 Daiso Best', daisoSub:'Popular budget picks',
-    rankings:'🏆 Top Rankings', rankingsSub:'Olive Young · Daiso',
+    rankings:'🏆 Top Rankings', rankingsSub:'All · Olive Young · Daiso',
+    all:'All', olive:'Olive Young', daiso:'Daiso',
     aiTitle:'AI Trend Analysis', aiSub:'Select a period',
     daily:'Daily', weekly:'Weekly', monthly:'Monthly',
     aiSummary:'📌 Summary', aiEvidence:'🔗 Evidence', aiPopular:'🛒 Popular products',
@@ -35,7 +36,8 @@ const I18N = {
     rising:'🔥 الأكثر صعوداً', risingSub:'تغيّر الترتيب عن الأمس',
     trends:'🌿 كلمات الاتجاه', trendsSub:'اضغط لعرض المنتجات المطابقة',
     daiso:'💎 أفضل دايسو', daisoSub:'منتجات اقتصادية شائعة',
-    rankings:'🏆 أفضل الترتيب', rankingsSub:'أوليف يونغ · دايسو',
+    rankings:'🏆 أفضل الترتيب', rankingsSub:'الكل · أوليف يونغ · دايسو',
+    all:'الكل', olive:'أوليف يونغ', daiso:'دايسو',
     aiTitle:'تحليل الاتجاهات بالذكاء الاصطناعي', aiSub:'اختر الفترة',
     daily:'يومي', weekly:'أسبوعي', monthly:'شهري',
     aiSummary:'📌 ملخص', aiEvidence:'🔗 أدلة', aiPopular:'🛒 منتجات شائعة',
@@ -66,15 +68,16 @@ const F = {
   rank: p => (p.rank ?? p.rank_num ?? null),
 };
 
-let currentLang = 'ko', currentPeriod = 'daily';
+let currentLang = 'ko', currentPeriod = 'daily', rankFilter = 'all';
 let fuse = null, productPool = [], aiData = null, trendItems = [];
+let allRankings = [], oliveList = [], daisoList = [];
 
 document.addEventListener('DOMContentLoaded', () => {
-  setupTabs(); setupLang(); setupPeriod(); setupSearch(); renderIngredientChips();
+  setupTabs(); setupLang(); setupPeriod(); setupFilter(); setupSearch(); renderIngredientChips();
   loadDashboard(); loadProductsPool(); loadAI();
 });
 
-/* ========== 탭 / 언어 / 기간 ========== */
+/* ========== 설정류 ========== */
 function setupTabs() {
   document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -104,8 +107,15 @@ function setupPeriod() {
     showPeriod();
   }));
 }
+function setupFilter() {
+  document.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('click', () => {
+    rankFilter = btn.dataset.filter;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+    renderRankings();
+  }));
+}
 
-/* ========== 데이터 로드 ========== */
+/* ========== 데이터 ========== */
 async function safeJson(url) { try { const r = await fetch(url); return r.ok ? await r.json() : null; } catch (e) { return null; } }
 
 async function loadDashboard() {
@@ -113,47 +123,41 @@ async function loadDashboard() {
     safeJson(API.dashboard), safeJson(API.changes), safeJson(API.rankingsToday)
   ]);
 
-  // 🔥 순위 급등
   const rising = firstList(getList(changes,'items','changes','rising'), getList(dash,'rising_products','rising','changes'));
   renderRising(rising);
 
-  // 🌿 트렌드 키워드
   trendItems = firstList(getList(dash,'top_trends','trends','keywords','trend_keywords'));
   renderTrendKeywords(trendItems);
 
-  // 🏆 전체 랭킹
-  const all = firstList(getList(ranks,'items','rankings'), getList(dash,'top_rankings','rankings'));
-  renderGrid(document.getElementById('all-rankings'), all.slice(0, 20));
-  toggleSec('sec-rankings', all.length);
+  allRankings = firstList(getList(ranks,'items','rankings'), getList(dash,'top_rankings','rankings'));
+  oliveList = allRankings.filter(p => F.source(p).includes('olive'));
+  daisoList = allRankings.filter(p => F.source(p).includes('daiso'));
+  if (!daisoList.length) daisoList = getList(dash,'daiso_picks','daiso');
 
-  // 💎 다이소
-  const daiso = all.filter(p => F.source(p).includes('daiso'));
-  renderGrid(document.getElementById('daiso-best'), (daiso.length ? daiso : getList(dash,'daiso_picks','daiso')).slice(0, 10));
-  toggleSec('sec-daiso', daiso.length || getList(dash,'daiso_picks','daiso').length);
+  renderGrid(document.getElementById('daiso-best'), daisoList.slice(0, 10), p => rankBadgeHtml(p));
+  toggleSec('sec-daiso', daisoList.length);
+
+  renderRankings();
+  toggleSec('sec-rankings', allRankings.length || daisoList.length);
 }
 function toggleSec(id, has) { const el = document.getElementById(id); if (el) el.style.display = has ? '' : 'none'; }
 
 async function loadProductsPool() {
   const data = await safeJson(API.products);
   productPool = Array.isArray(data) ? data : firstList(getList(data,'items','products','results'));
-  if (window.Fuse && productPool.length) {
-    fuse = new Fuse(productPool, { keys: ['product_name','brand'], threshold: 0.35 });
-  }
+  if (window.Fuse && productPool.length) fuse = new Fuse(productPool, { keys: ['product_name','brand'], threshold: 0.35 });
 }
 
 async function loadAI() {
   document.getElementById('ai-summary').textContent = '...';
   const data = await safeJson(API.ai(currentLang));
-  if (data) { aiData = data; showPeriod();
-    document.getElementById('ai-popular').textContent = data.popular || '';
-  }
+  if (data) { aiData = data; showPeriod(); document.getElementById('ai-popular').textContent = data.popular || ''; }
 }
 function showPeriod() {
   if (!aiData) return;
   const d = aiData[currentPeriod] || {};
   document.getElementById('ai-summary').textContent = d.summary || '-';
-  const ev = firstList(d.evidence);
-  document.getElementById('ai-evidence').innerHTML = ev.map(e => `<li>${esc(typeof e === 'string' ? e : JSON.stringify(e))}</li>`).join('');
+  document.getElementById('ai-evidence').innerHTML = firstList(d.evidence).map(e => `<li>${esc(typeof e === 'string' ? e : JSON.stringify(e))}</li>`).join('');
 }
 
 /* ========== 렌더링 ========== */
@@ -162,33 +166,46 @@ function badgeHtml(p) {
   return s.includes('daiso') ? '<span class="badge badge-daiso">🔵 다이소</span>'
        : s.includes('olive') ? '<span class="badge badge-olive">🫒 올리브영</span>' : '';
 }
-function cardHtml(p, changeHtml = '') {
+/* ✅ 랭킹 배지: 다이소는 자체 랭킹(수집 순서), 올리브영은 실제 랭킹 */
+function rankBadgeHtml(p) {
+  const s = F.source(p);
+  if (s.includes('daiso')) return `<div class="rank-no daiso">🔵 다이소 ${daisoList.indexOf(p) + 1}위</div>`;
+  if (s.includes('olive')) return `<div class="rank-no olive">🫒 올리브영 ${F.rank(p) || (oliveList.indexOf(p) + 1)}위</div>`;
+  return '';
+}
+function cardHtml(p, topHtml = '') {
   const price = F.price(p);
   return `<div class="product-card" onclick="window.open('${esc(F.url(p))}','_blank')">
-    ${badgeHtml(p)}${changeHtml}
+    ${topHtml || badgeHtml(p)}
     <div class="brand">${esc(F.brand(p))}</div>
     <div class="name">${esc(F.name(p))}</div>
     <div class="price">${price != null ? Number(price).toLocaleString() + '원' : ''}</div>
   </div>`;
 }
-function renderGrid(el, items) { el.innerHTML = items.map(p => cardHtml(p)).join('') || '<p class="loading">데이터 없음</p>'; }
-
+function renderGrid(el, items, topFn) {
+  el.innerHTML = items.map(p => cardHtml(p, topFn ? topFn(p) : '')).join('') || '<p class="loading">데이터 없음</p>';
+}
 function renderRising(items) {
-  const el = document.getElementById('olive-rising');
-  el.innerHTML = items.map(p => {
+  document.getElementById('olive-rising').innerHTML = items.map(p => {
     const ch = p.change ?? ((p.previous_rank ?? 0) - (F.rank(p) ?? 0));
-    const html = ch > 0 ? `<div class="rank-change-up">🚀 +${ch}계단</div>`
-               : ch < 0 ? `<div class="rank-change-down">📉 ${ch}계단</div>` : '';
-    return cardHtml(p, html);
+    const html = (ch > 0 ? `<div class="rank-change-up">🚀 +${ch}계단</div>` : ch < 0 ? `<div class="rank-change-down">📉 ${ch}계단</div>` : '');
+    return cardHtml(p, rankBadgeHtml(p) + html);
   }).join('') || '<p class="loading">데이터 없음</p>';
   toggleSec('sec-rising', items.length);
 }
-
+/* ✅ 점수() 제거, 키워드만 */
 function renderTrendKeywords(items) {
   document.getElementById('trend-keywords').innerHTML = items.map((k, i) =>
-    `<div class="keyword-chip" onclick="onKeywordClick(${i})">#${esc(k.keyword || k.name || k)} <small>(${k.score ?? ''})</small></div>`
-  ).join('');
+    `<div class="keyword-chip" onclick="onKeywordClick(${i})">#${esc(k.keyword || k.name || k)}</div>`).join('');
   toggleSec('sec-trends', items.length);
+}
+/* ✅ 종합/올리브영/다이소 필터 */
+function renderRankings() {
+  let items;
+  if (rankFilter === 'olive') items = oliveList;
+  else if (rankFilter === 'daiso') items = daisoList;
+  else items = [...oliveList, ...daisoList].length ? [...oliveList, ...daisoList] : allRankings;
+  renderGrid(document.getElementById('all-rankings'), items.slice(0, 30), p => rankBadgeHtml(p));
 }
 
 async function onKeywordClick(i) {
@@ -197,16 +214,16 @@ async function onKeywordClick(i) {
   let products = firstList(item.products);
   if (!products.length) {
     const d = await safeJson(API.keyword(kw));
-    products = firstList(getList(d,'products','items','results'), getList(d,'matched','products'));
+    products = firstList(getList(d,'products','items','results'));
   }
-  document.getElementById('keyword-match-title').textContent = `🌿 #${kw} 매칭 상품`;
+  document.getElementById('keyword-match-title').textContent = `🌿 #${kw}`;
   renderGrid(document.getElementById('keyword-match-grid'), products);
   const sec = document.getElementById('keyword-match');
   sec.style.display = 'block'; sec.scrollIntoView({ behavior: 'smooth' });
 }
 function closeKeywordMatch() { document.getElementById('keyword-match').style.display = 'none'; }
 
-/* ========== 검색 (Fuse 자동완성 + 서버 검색) ========== */
+/* ========== 검색 ========== */
 function setupSearch() {
   const input = document.getElementById('searchInput');
   const box = document.getElementById('searchSuggestions');
@@ -220,7 +237,7 @@ function setupSearch() {
       ${badgeHtml(r.item)}</div>`).join('');
     box.style.display = 'block';
   });
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') { box.style.display='none'; doSearch(input.value.trim()); } });
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { box.style.display = 'none'; doSearch(input.value.trim()); } });
   document.addEventListener('click', e => { if (!e.target.closest('.search-wrapper')) box.style.display = 'none'; });
 }
 async function doSearch(q) {
@@ -246,18 +263,12 @@ function renderIngredientChips() {
 }
 function onIngredientClick(i) {
   const ing = INGREDIENTS[i];
-  let items;
-  if (ing.keys.length) {
-    items = productPool.filter(p => {
-      const n = (F.name(p) + ' ' + F.brand(p)).toLowerCase();
-      return ing.keys.some(k => n.includes(k.toLowerCase()));
-    });
-  } else {
-    const matched = new Set(INGREDIENTS.slice(0, -1).flatMap(x => x.keys));
-    items = productPool.filter(p => {
-      const n = (F.name(p) + ' ' + F.brand(p)).toLowerCase();
-      return ![...matched].some(k => n.includes(k.toLowerCase()));
-    });
-  }
-  renderGrid(document.getElementById('ingredient-results'), items.slice(0, 30));
+  const allKeys = INGREDIENTS.slice(0, -1).flatMap(x => x.keys);
+  const match = p => {
+    const n = (F.name(p) + ' ' + F.brand(p)).toLowerCase();
+    return ing.keys.some(k => n.includes(k.toLowerCase()));
+  };
+  const items = ing.keys.length ? productPool.filter(match)
+    : productPool.filter(p => { const n = (F.name(p) + ' ' + F.brand(p)).toLowerCase(); return !allKeys.some(k => n.includes(k.toLowerCase())); });
+  renderGrid(document.getElementById('ingredient-results'), items.slice(0, 30), p => rankBadgeHtml(p));
 }
