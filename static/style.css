@@ -143,3 +143,41 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 .cat-header.collapsed .cat-arrow { transform: rotate(-90deg); }
 .cat-body { padding: 14px; display: block; }
 .cat-body.collapsed { display: none; }
+
+/* 전역 기간 스위치 */
+.global-period { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+
+/* 2단 분할 */
+.duo-section { display: grid; grid-template-columns: 1fr; gap: 28px; }
+@media (min-width: 900px) { .duo-section { grid-template-columns: 1fr 1fr; } }
+.duo-col { min-width: 0; }
+
+/* 접기/펼치기 */
+.collapsible-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; padding: 8px 0; }
+.collapsible-header:hover h2 { color: #d32f2f; }
+.toggle-icon { font-size: 20px; color: #888; transition: transform 0.3s; }
+.collapsible-header.collapsed .toggle-icon { transform: rotate(-90deg); }
+.collapsible-body { max-height: 5000px; overflow: hidden; transition: max-height 0.4s ease, opacity 0.3s ease; opacity: 1; }
+.collapsible-body.collapsed { max-height: 0; opacity: 0; }
+
+/* ✅ 아래쪽 접기 버튼 */
+.fold-btn { display: block; margin: 14px auto 0; border: 1px solid #ddd; background: #fff;
+  border-radius: 16px; padding: 7px 22px; font-size: 12px; color: #555; cursor: pointer; }
+.fold-btn:hover { background: #f1f3f5; color: #d32f2f; border-color: #d32f2f; }
+
+/* 전체상품 아코디언 */
+.cat-section { margin-top: 16px; border: 1px solid #eee; border-radius: 12px; overflow: hidden; }
+.cat-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: #f8f9fa; cursor: pointer; user-select: none; }
+.cat-header:hover { background: #f1f3f5; }
+.cat-header-left { display: flex; align-items: center; gap: 10px; }
+.cat-name { font-size: 15px; font-weight: 800; color: #333; }
+.cat-count { color: #888; font-size: 12px; font-weight: 600; }
+.cat-arrow { font-size: 14px; color: #888; transition: transform 0.3s; }
+.cat-header.collapsed .cat-arrow { transform: rotate(-90deg); }
+.cat-body { padding: 14px; display: block; }
+.cat-body.collapsed { display: none; }
+
+/* 데이터 부족 */
+.insufficient { padding: 24px; text-align: center; color: #888; font-size: 14px;
+  background: #fff; border: 1px dashed #ddd; border-radius: 12px; grid-column: 1 / -1; }
+.other-chip { background: #f1f3f5; border-style: dashed; }
