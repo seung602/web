@@ -21,8 +21,15 @@
   <nav class="tabs">
     <button class="tab-btn active" data-tab="dashboard" data-i18n="dashboard">📊 대시보드</button>
     <button class="tab-btn" data-tab="ai" data-i18n="ai">🤖 AI 트렌드</button>
-    <button class="tab-btn" data-tab="ingredients" data-i18n="ingredients">🌿 성분별</button>
+    <button class="tab-btn" data-tab="keywords" data-i18n="keywordsTab">🗂️ 키워드별</button>
   </nav>
+  <!-- 🚨 전역 기간 스위치 (모든 탭에서 항상 보임) -->
+  <div class="period-switch global-period">
+    <span class="period-label" data-i18n="periodLabel">분석 기간</span>
+    <button class="period-btn active" data-period="daily" data-i18n="daily">일간</button>
+    <button class="period-btn" data-period="weekly" data-i18n="weekly">주간</button>
+    <button class="period-btn" data-period="monthly" data-i18n="monthly">월간</button>
+  </div>
 </header>
 
 <main class="container">
@@ -30,7 +37,7 @@
   <div class="search-wrapper">
     <div class="search-input-box">
       <span class="search-icon">🔍</span>
-      <input type="text" id="searchInput" data-i18n-ph="search" placeholder="상품명·브랜드·성분 검색 (예: PDRN, 세라마이드)">
+      <input type="text" id="searchInput" data-i18n-ph="search" placeholder="상품명·브랜드 검색 (예: PDRN, 세라마이드)">
     </div>
     <div id="searchSuggestions" class="suggestions-box"></div>
   </div>
@@ -57,7 +64,7 @@
       <div class="section-header">
         <div>
           <h2 data-i18n="rising">🔥 올리브영 순위 급등</h2>
-          <span class="subtitle" data-i18n="risingSub">어제 대비 랭킹 변동</span>
+          <span class="subtitle" id="rising-sub"></span>
         </div>
       </div>
       <div id="olive-rising" class="product-grid"></div>
@@ -77,17 +84,16 @@
       <div class="section-header">
         <div>
           <h2 data-i18n="daiso">💎 다이소 뷰티 베스트</h2>
-          <span class="subtitle" data-i18n="daisoSub">가성비 인기 상품</span>
+          <span class="subtitle" data-i18n="daisoSub">리뷰·평점 기반 자체 랭킹</span>
         </div>
       </div>
       <div id="daiso-best" class="product-grid"></div>
     </div>
 
-    <!-- 🏆 랭킹: 종합/올리브영/다이소 필터 -->
     <div id="sec-rankings" style="margin-top:40px;">
       <div class="section-header">
         <div>
-          <h2 data-i18n="rankings">🏆 전체 상품 랭킹</h2>
+          <h2 data-i18n="rankings">🏆 전체 상품 킹</h2>
           <span class="subtitle" data-i18n="rankingsSub">종합·올리브영·다이소</span>
         </div>
       </div>
@@ -104,13 +110,8 @@
     <div class="section-header">
       <div>
         <h2 data-i18n="aiTitle">AI 트렌드 분석</h2>
-        <span class="subtitle" data-i18n="aiSub">기간을 선택하세요</span>
+        <span class="subtitle" data-i18n="aiSub">상단에서 기간을 선택하세요</span>
       </div>
-    </div>
-    <div class="period-switch">
-      <button class="period-btn active" data-period="daily" data-i18n="daily">일간</button>
-      <button class="period-btn" data-period="weekly" data-i18n="weekly">주간</button>
-      <button class="period-btn" data-period="monthly" data-i18n="monthly">월간</button>
     </div>
     <div class="ai-card">
       <h3 data-i18n="aiSummary">📌 요약</h3>
@@ -124,18 +125,19 @@
     </div>
   </section>
 
-  <section id="ingredients-tab" class="tab-content">
+  <section id="keywords-tab" class="tab-content">
     <div class="section-header">
       <div>
-        <h2 data-i18n="ingTitle">🌿 성분별 상품 보기</h2>
-        <span class="subtitle" data-i18n="ingSub">성분을 선택하세요</span>
+        <h2 data-i18n="kwTitle">🗂️ 키워드별 전체 상품</h2>
+        <span class="subtitle" data-i18n="kwSub">키워드를 누르면 해당 전체 상품이 보여요</span>
       </div>
     </div>
-    <div id="ingredient-chips" class="keyword-grid"></div>
-    <div id="ingredient-results" class="product-grid" style="margin-top:20px;"></div>
+    <div id="keyword-chips" class="keyword-grid"></div>
+    <div id="keyword-results" class="product-grid" style="margin-top:20px;"></div>
   </section>
 
 </main>
+<script src="/static/keywords.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>
