@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from api.app import router as app_router
 from api.catalog import router as catalog_router
+from api.periods import router as periods_router  # 🚨 추가
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
@@ -14,7 +15,7 @@ STATIC_DIR = BASE_DIR / "static"
 app = FastAPI(
     title="K-Beauty Trend Intelligence",
     description="Unified K-Beauty trend + catalog API",
-    version="3.0.0",
+    version="3.1.0",
 )
 
 app.add_middleware(
@@ -27,6 +28,7 @@ app.add_middleware(
 
 app.include_router(app_router)
 app.include_router(catalog_router)
+app.include_router(periods_router)  # 🚨 추가
 
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
