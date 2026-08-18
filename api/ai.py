@@ -20,6 +20,15 @@ try:
 except Exception:
     genai = None
 
+GEMINI_MODELS = [
+    "gemini-3.6-flash",
+    "gemini-3.6-flash-preview",
+    "gemini-3.0-flash",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+]
+
 
 def _cols(conn, table):
     try:
@@ -74,20 +83,30 @@ def _gemini_summary(lang, period, top):
         return None
     try:
         genai.configure(api_key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
-        model = genai.GenerativeModel("gemini-1.5-flash-latest")
-        lang_name = {"ko": "Korean", "en": "English", "ar": "Arabic"}.get(lang, "Korean")
-        data_text = "; ".join(
-            f"{t['keyword']} (score {t['score']:.0f}, mentions {t['mentions']}, "
-            f"platforms: {','.join(t['platforms'].keys())})" for t in top)
-        prompt = (
-            f"You are a beauty market analyst for Korean cosmetics sellers. "
-            f"Analyze ONLY Western social/search trends (TikTok/YouTube/Instagram/Google/Amazon). "
-            f"Write a {lang_name} summary (3-5 sentences) of current Western beauty trends. "
-            f"Do NOT mention Olive Young or Daiso.\nTrend data ({period}): {data_text}")
-        return model.generate_content(prompt).text.strip()
     except Exception as e:
-        logger.error(f"gemini error: {e}")
+        logger.error(f"gemini configure error: {e}")
         return None
+
+    lang_name = {"ko": "Korean", "en": "English", "ar": "Arabic"}.get(lang, "Korean")
+    data_text = "; ".join(
+        f"{t['keyword']} (score {t['score']:.0f}, mentions {t['mentions']}, "
+        f"platforms: {','.join(t['platforms'].keys())})" for t in top)
+    prompt = (
+        f"You are a beauty market analyst for Korean cosmetics sellers. "
+        f"Analyze ONLY Western social/search trends (TikTok/YouTube/Instagram/Google/Amazon). "
+        f"Write a {lang_name} summary (3-5 sentences) of current Western beauty trends. "
+        f"Do NOT mention Olive Young or Daiso.\nTrend data ({period}): {data_text}")
+
+    for model_name in GEMINI_MODELS:
+        try:
+            model = genai.GenerativeModel(model_name)
+            resp = model.generate_content(prompt)
+            logger.info(f"✅ Gemini success: {model_name}")
+            return resp.text.strip()
+        except Exception as e:
+            logger.warning(f"gemini {model_name} failed: {e}")
+            continue
+    return None
 
 
 def _fallback_summary(lang, period, top):
