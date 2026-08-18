@@ -59,12 +59,29 @@ const isArr = a => Array.isArray(a) && a.length > 0;
 const firstList = (...a) => { for (const x of a) if (isArr(x)) return x; return []; };
 const getList = (o, ...ks) => { if (!o || typeof o !== 'object') return []; for (const k of ks) if (isArr(o[k])) return o[k]; return []; };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
 const F = {
   name: p => p.product_name || p.name || '',
   brand: p => p.brand || '',
   url: p => p.product_url || p.url || '#',
-  source: p => String(p.source || '').toLowerCase(),
-  price: p => (p.sale_price ?? p.price ?? null),
+  /* ✅ 출처 판별 강화: source 없으면 상품 ID/URL로 자동 판별 */
+  source: p => {
+    let s = String(p.source || '').toLowerCase();
+    if (s) return s;
+    const id = String(p.product_id || '').toUpperCase();
+    const url = String(p.product_url || p.url || '').toLowerCase();
+    if (id.startsWith('OY') || url.includes('oliveyoung')) return 'oliveyoung';
+    if (id.startsWith('DS') || url.includes('daiso')) return 'daiso';
+    return '';
+  },
+  /* ✅ 가격 방어: 999(수집 오류 placeholder)는 숨김 */
+  price: p => {
+    let v = p.sale_price ?? p.price ?? null;
+    if (v == null) return null;
+    v = Number(String(v).replace(/[^0-9]/g, ''));
+    if (!v || v === 999) return null;
+    return v;
+  },
   rank: p => (p.rank ?? p.rank_num ?? null),
 };
 
@@ -77,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadDashboard(); loadProductsPool(); loadAI();
 });
 
-/* ========== 설정류 ========== */
+/* ========== 설정 ========== */
 function setupTabs() {
   document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -115,7 +132,7 @@ function setupFilter() {
   }));
 }
 
-/* ========== 데이터 ========== */
+/* ========== 데이터 로드 ========== */
 async function safeJson(url) { try { const r = await fetch(url); return r.ok ? await r.json() : null; } catch (e) { return null; } }
 
 async function loadDashboard() {
@@ -134,18 +151,32 @@ async function loadDashboard() {
   daisoList = allRankings.filter(p => F.source(p).includes('daiso'));
   if (!daisoList.length) daisoList = getList(dash,'daiso_picks','daiso');
 
-  renderGrid(document.getElementById('daiso-best'), daisoList.slice(0, 10), p => rankBadgeHtml(p));
-  toggleSec('sec-daiso', daisoList.length);
-
+  renderDaiso();
   renderRankings();
   toggleSec('sec-rankings', allRankings.length || daisoList.length);
 }
+function renderDaiso() {
+  renderGrid(document.getElementById('daiso-best'), daisoList.slice(0, 10), p => rankBadgeHtml(p));
+  toggleSec('sec-daiso', daisoList.length);
+}
 function toggleSec(id, has) { const el = document.getElementById(id); if (el) el.style.display = has ? '' : 'none'; }
 
+/* ✅ 다이소 폴백: 랭킹에 없으면 상품 목록에서 자동 추출 */
 async function loadProductsPool() {
   const data = await safeJson(API.products);
   productPool = Array.isArray(data) ? data : firstList(getList(data,'items','products','results'));
   if (window.Fuse && productPool.length) fuse = new Fuse(productPool, { keys: ['product_name','brand'], threshold: 0.35 });
+
+  let refreshed = false;
+  if (!daisoList.length) {
+    daisoList = productPool.filter(p => F.source(p).includes('daiso')).slice(0, 50);
+    if (daisoList.length) { renderDaiso(); refreshed = true; }
+  }
+  if (!oliveList.length) {
+    oliveList = productPool.filter(p => F.source(p).includes('olive'));
+    if (oliveList.length) refreshed = true;
+  }
+  if (refreshed) renderRankings();
 }
 
 async function loadAI() {
@@ -166,7 +197,6 @@ function badgeHtml(p) {
   return s.includes('daiso') ? '<span class="badge badge-daiso">🔵 다이소</span>'
        : s.includes('olive') ? '<span class="badge badge-olive">🫒 올리브영</span>' : '';
 }
-/* ✅ 랭킹 배지: 다이소는 자체 랭킹(수집 순서), 올리브영은 실제 랭킹 */
 function rankBadgeHtml(p) {
   const s = F.source(p);
   if (s.includes('daiso')) return `<div class="rank-no daiso">🔵 다이소 ${daisoList.indexOf(p) + 1}위</div>`;
@@ -179,7 +209,7 @@ function cardHtml(p, topHtml = '') {
     ${topHtml || badgeHtml(p)}
     <div class="brand">${esc(F.brand(p))}</div>
     <div class="name">${esc(F.name(p))}</div>
-    <div class="price">${price != null ? Number(price).toLocaleString() + '원' : ''}</div>
+    <div class="price">${price != null ? Number(price).toLocaleString() + '원' : '<span style="color:#999;font-size:12px;">가격 확인</span>'}</div>
   </div>`;
 }
 function renderGrid(el, items, topFn) {
@@ -193,18 +223,16 @@ function renderRising(items) {
   }).join('') || '<p class="loading">데이터 없음</p>';
   toggleSec('sec-rising', items.length);
 }
-/* ✅ 점수() 제거, 키워드만 */
 function renderTrendKeywords(items) {
   document.getElementById('trend-keywords').innerHTML = items.map((k, i) =>
     `<div class="keyword-chip" onclick="onKeywordClick(${i})">#${esc(k.keyword || k.name || k)}</div>`).join('');
   toggleSec('sec-trends', items.length);
 }
-/* ✅ 종합/올리브영/다이소 필터 */
 function renderRankings() {
   let items;
   if (rankFilter === 'olive') items = oliveList;
   else if (rankFilter === 'daiso') items = daisoList;
-  else items = [...oliveList, ...daisoList].length ? [...oliveList, ...daisoList] : allRankings;
+  else items = (oliveList.length || daisoList.length) ? [...oliveList, ...daisoList] : allRankings;
   renderGrid(document.getElementById('all-rankings'), items.slice(0, 30), p => rankBadgeHtml(p));
 }
 
@@ -264,11 +292,9 @@ function renderIngredientChips() {
 function onIngredientClick(i) {
   const ing = INGREDIENTS[i];
   const allKeys = INGREDIENTS.slice(0, -1).flatMap(x => x.keys);
-  const match = p => {
-    const n = (F.name(p) + ' ' + F.brand(p)).toLowerCase();
-    return ing.keys.some(k => n.includes(k.toLowerCase()));
-  };
-  const items = ing.keys.length ? productPool.filter(match)
-    : productPool.filter(p => { const n = (F.name(p) + ' ' + F.brand(p)).toLowerCase(); return !allKeys.some(k => n.includes(k.toLowerCase())); });
+  const nameOf = p => (F.name(p) + ' ' + F.brand(p)).toLowerCase();
+  const items = ing.keys.length
+    ? productPool.filter(p => ing.keys.some(k => nameOf(p).includes(k.toLowerCase())))
+    : productPool.filter(p => !allKeys.some(k => nameOf(p).includes(k.toLowerCase())));
   renderGrid(document.getElementById('ingredient-results'), items.slice(0, 30), p => rankBadgeHtml(p));
 }
