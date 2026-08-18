@@ -1,0 +1,71 @@
+/* 화장품 전 상품 커버하는 키워드 분류 (성분 24 + 제형 22 + 조합 6 = 52개)
+   match: 문자열(하나라도 포함) / 배열(AND 조합, 예: ['세라마이드','세럼']) */
+const KEYWORDS = [
+  // ───────── 성분 ─────────
+  { id:'pdrn', ko:'PDRN', en:'PDRN', ar:'PDRN', match:['pdrn','디엔에이'] },
+  { id:'retinol', ko:'레티놀', en:'Retinol', ar:'ريتينول', match:['레티놀','retinol'] },
+  { id:'ceramide', ko:'세라마이드', en:'Ceramide', ar:'سيراميد', match:['세라마이드','ceramide'] },
+  { id:'cica', ko:'시카·병풀', en:'Cica & Centella', ar:'سيكا', match:['시카','centella','병풀','센텔라','마데카'] },
+  { id:'niacinamide', ko:'나이아신아마이드', en:'Niacinamide', ar:'نياسيناميد', match:['나이아신아마이드','niacinamide','니아신아마이드'] },
+  { id:'hyaluron', ko:'히알루론산', en:'Hyaluronic Acid', ar:'هيالورونيك', match:['히알루론','hyaluron','히아루론'] },
+  { id:'collagen', ko:'콜라겐', en:'Collagen', ar:'كولاجين', match:['콜라겐','collagen'] },
+  { id:'peptide', ko:'펩타이드', en:'Peptide', ar:'ببتيد', match:['펩타이드','peptide'] },
+  { id:'glutathione', ko:'글루타치온', en:'Glutathione', ar:'غلوتاثيون', match:['글루타치온','glutathione'] },
+  { id:'vitamin', ko:'비타민', en:'Vitamin', ar:'فيتامين', match:['비타민','vitamin','비타씨'] },
+  { id:'panthenol', ko:'판테놀', en:'Panthenol', ar:'بانثينول', match:['판테놀','panthenol'] },
+  { id:'azulene', ko:'아줄렌', en:'Azulene', ar:'أزولين', match:['아줄렌','azulene'] },
+  { id:'propolis', ko:'프로폴리스', en:'Propolis', ar:'بروبوليس', match:['프로폴리스','propolis'] },
+  { id:'mugwort', ko:'쑥·어성초', en:'Mugwort & Heartleaf', ar:'شيح', match:['쑥','mugwort','어성초','heartleaf'] },
+  { id:'teatree', ko:'티트리', en:'Tea Tree', ar:'شجرة الشاي', match:['티트리','tea tree'] },
+  { id:'snail', ko:'달팽이·뮤신', en:'Snail Mucin', ar:'مخاط الحلزون', match:['달팽이','snail','뮤신','mucin'] },
+  { id:'zinc', ko:'징크·트러블', en:'Zinc & Trouble', ar:'زنك', match:['징크','zinc','트러블','acne'] },
+  { id:'madecasso', ko:'마데카소사이드', en:'Madecassoside', ar:'ماديكاسوسايد', match:['마데카소사이드','madecassoside'] },
+  { id:'biotin', ko:'비오틴', en:'Biotin', ar:'بيوتين', match:['비오틴','biotin'] },
+  { id:'ahabha', ko:'AHA·BHA', en:'AHA·BHA', ar:'أحماض مقشرة', match:['아하','바하','aha','bha'] },
+  { id:'squalane', ko:'스쿠알란', en:'Squalane', ar:'سكوالان', match:['스쿠알란','squalane'] },
+  { id:'lacto', ko:'락토·유산균', en:'Lacto & Probiotics', ar:'لاكتو', match:['락토','lacto','프로바이오틱스'] },
+  { id:'green', ko:'녹두·녹차', en:'Mung Bean & Green Tea', ar:'شاي أخضر', match:['녹두','녹차'] },
+  { id:'allantoin', ko:'알란토인', en:'Allantoin', ar:'ألانتوين', match:['알란토인','allantoin'] },
+  // ───────── 제형/카테고리 ─────────
+  { id:'toner', ko:'토너', en:'Toner', ar:'تونر', match:['토너','toner'] },
+  { id:'serum', ko:'세럼·앰플', en:'Serum & Ampoule', ar:'سيروم', match:['세럼','serum','앰플','ampoule'] },
+  { id:'cream', ko:'크림', en:'Cream', ar:'كريم', match:['크림','cream'] },
+  { id:'lotion', ko:'로션·에멀전', en:'Lotion', ar:'لوشن', match:['로션','lotion','에멀전','emulsion'] },
+  { id:'essence', ko:'에센스', en:'Essence', ar:'إيسنس', match:['에센스','essence'] },
+  { id:'mask', ko:'마스크팩', en:'Mask Pack', ar:'ماسك', match:['마스크','mask'], exclude:['팩트'] },
+  { id:'pad', ko:'토너패드', en:'Toner Pad', ar:'وسادات', match:['패드','pad'] },
+  { id:'mist', ko:'미스트', en:'Mist', ar:'رذاذ', match:['미스트','mist'] },
+  { id:'eyecream', ko:'아이크림', en:'Eye Cream', ar:'كريم عين', match:['아이크림','eye cream','아이세럼'] },
+  { id:'cleansing', ko:'클렌징', en:'Cleansing', ar:'تنظيف', match:['클렌징','cleans','클렌저'] },
+  { id:'oilbalm', ko:'클렌징오일·밤', en:'Cleansing Oil & Balm', ar:'زيت تنظيف', match:[['클렌징','오일'],['클렌징','밤'],['cleansing','oil'],['cleansing','balm']] },
+  { id:'peeling', ko:'필링·각질', en:'Peeling & Scrub', ar:'تقشير', match:['필링','peeling','스크럽','scrub','각질'] },
+  { id:'suncream', ko:'선크림', en:'Sun Cream', ar:'واقي شمس', match:['선크림','sun cream','sunscreen','자외선'] },
+  { id:'sunstick', ko:'선스틱', en:'Sun Stick', ar:'ستيك شمس', match:['선스틱','sunstick','sun stick'] },
+  { id:'cushion', ko:'쿠션', en:'Cushion', ar:'كوشن', match:['쿠션','cushion'] },
+  { id:'base', ko:'파운데이션·베이스', en:'Foundation & Base', ar:'أساس', match:['파운데이션','foundation','프라이머','primer','컨실러','concealer'] },
+  { id:'lip', ko:'립·틴트', en:'Lip & Tint', ar:'أحمر شفاه', match:['립','lip','틴트','tint','글로스','gloss'], exclude:['리필'] },
+  { id:'powder', ko:'파우더·팩트', en:'Powder & Pact', ar:'بودرة', match:['파우더','powder','팩트','pact','블러'] },
+  { id:'shampoo', ko:'샴푸', en:'Shampoo', ar:'شامبو', match:['샴푸','shampoo'] },
+  { id:'treatment', ko:'트리트먼트·헤어', en:'Hair Treatment', ar:'بلسم شعر', match:['트리트먼트','treatment','헤어','hair','염색','염모','탈모'] },
+  { id:'body', ko:'바디', en:'Body Care', ar:'عناية الجسم', match:['바디','body'] },
+  { id:'hand', ko:'핸드크림', en:'Hand Cream', ar:'كريم يد', match:['핸드','hand'] },
+  { id:'men', ko:'맨즈·올인원', en:"Men's All-in-One", ar:'عناية رجالية', match:['올인원','all-in-one','맨즈','포맨','for men'] },
+  { id:'perfume', ko:'향수', en:'Perfume', ar:'عطر', match:['향수','perfume','오드','eau de','코롱','cologne'] },
+  // ───────── 조합 키워드 (성분+제형) ─────────
+  { id:'ceramide_serum', ko:'세라마이드 세럼', en:'Ceramide Serum', ar:'سيروم سيراميد', match:[['세라마이드','세럼'],['세라마이드','앰플'],['ceramide','serum'],['ceramide','ampoule']] },
+  { id:'pdrn_toner', ko:'PDRN 토너', en:'PDRN Toner', ar:'تونر PDRN', match:[['pdrn','토너'],['pdrn','toner']] },
+  { id:'retinol_cream', ko:'레티놀 크림', en:'Retinol Cream', ar:'كريم ريتينول', match:[['레티놀','크림'],['retinol','cream']] },
+  { id:'cica_cream', ko:'시카 크림', en:'Cica Cream', ar:'كريم سيكا', match:[['시카','크림'],['병풀','크림'],['centella','cream']] },
+  { id:'vita_ampoule', ko:'비타민 앰플', en:'Vitamin Ampoule', ar:'أمبول فيتامين', match:[['비타','앰플'],['비타민','앰플'],['vitamin','ampoule']] },
+  { id:'hyaluron_toner', ko:'히알루론 토너', en:'Hyaluronic Toner', ar:'تونر هيالورونيك', match:[['히알루론','토너'],['hyaluron','toner']] },
+];
+
+function keywordLabel(k, lang) { return k[lang] || k.ko; }
+
+function matchKeywordText(text, kw) {
+  const n = text.toLowerCase();
+  if ((kw.exclude || []).some(x => n.includes(x.toLowerCase()))) return false;
+  return (kw.match || []).some(cond =>
+    Array.isArray(cond) ? cond.every(k => n.includes(k.toLowerCase()))
+                        : n.includes(cond.toLowerCase()));
+}
