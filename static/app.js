@@ -368,3 +368,51 @@ function onKeywordTabClick(i) {
   else items = productPool.filter(p => !KEYWORDS.some(kw => matchKeywordText(kwText(p), kw)));
   renderGrid(document.getElementById('keyword-results'), items.slice(0, 60), p => rankBadgeHtml(p));
 }
+
+/* ✅ 접기/펼치기 토글 */
+function toggleSection(bodyId) {
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  body.classList.toggle('collapsed');
+  const header = body.previousElementSibling;
+  if (header) header.classList.toggle('collapsed');
+}
+
+/* ✅ 전체상품 아코디언 렌더링 (renderAllProducts 대체) */
+function renderAllProducts() {
+  const order = ['스킨케어','마스크팩','클렌징','선케어','메이크업','맨즈케어','향수'];
+  const groups = {};
+  productPool.forEach(p => {
+    const g = p.parent_category || p.category || '기타';
+    (groups[g] = groups[g] || []).push(p);
+  });
+  const keys = [
+    ...order.filter(k => groups[k]),
+    ...Object.keys(groups).filter(k => !order.includes(k)).sort()
+  ];
+  const container = document.getElementById('allproducts-container');
+  if (!container) return;
+  container.innerHTML = keys.map((k, idx) => {
+    const items = groups[k].sort((a,b) => (b.pop || 0) - (a.pop || 0)).slice(0, 60);
+    const bodyId = `cat-body-${idx}`;
+    return `<div class="cat-section">
+      <div class="cat-header collapsed" onclick="toggleCatBody('${bodyId}', this)">
+        <div class="cat-header-left">
+          <span class="cat-name">${esc(k)}</span>
+          <span class="cat-count">${groups[k].length}개 상품</span>
+        </div>
+        <span class="cat-arrow">▼</span>
+      </div>
+      <div id="${bodyId}" class="cat-body collapsed">
+        <div class="product-grid">${items.map(p => cardHtml(p, rankBadgeHtml(p))).join('')}</div>
+      </div>
+    </div>`;
+  }).join('') || '<p class="loading">데이터 없음</p>';
+}
+
+function toggleCatBody(bodyId, headerEl) {
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  body.classList.toggle('collapsed');
+  headerEl.classList.toggle('collapsed');
+}
