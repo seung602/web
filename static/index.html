@@ -1,67 +1,130 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <!-- 1순위: 모바일 좌우 짤림 방지 핵심 -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>K-Beauty Intelligence</title>
-    
-    <!-- 2순위: Fuse.js (AI 자동완성 검색 엔진) -->
-    <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
-    <link rel="stylesheet" href="/static/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K-Beauty Trend Intelligence</title>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
-    <!-- 📌 상단 고정 네비게이션 (어디서든 탭 이동 가능) -->
-    <header class="global-header">
-        <div class="header-top">
-            <h1 class="logo">🌸 K-Beauty</h1>
-        </div>
-        <nav class="tabs">
-            <button class="tab-btn active" data-tab="dashboard">📊 대시보드</button>
-            <button class="tab-btn" data-tab="ai-trends">🤖 AI 트렌드</button>
-            <button class="tab-btn" data-tab="ingredients">🌿 성분별</button>
-        </nav>
-    </header>
+<!-- 📌 상단 고정 헤더 (언어 전환 + 탭) -->
+<header class="global-header">
+  <div class="header-top">
+    <h1 class="logo">🌸 K-Beauty</h1>
+    <div class="lang-switch">
+      <button class="lang-btn active" data-lang="ko">KO</button>
+      <button class="lang-btn" data-lang="en">EN</button>
+      <button class="lang-btn" data-lang="ar">AR</button>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="dashboard" data-i18n="dashboard">📊 대시보드</button>
+    <button class="tab-btn" data-tab="ai" data-i18n="ai">🤖 AI 트렌드</button>
+    <button class="tab-btn" data-tab="ingredients" data-i18n="ingredients">🌿 성분별</button>
+  </nav>
+</header>
 
-    <main class="container">
-        <!-- 🔍 스마트 검색창 -->
-        <div class="search-wrapper">
-            <div class="search-input-box">
-                <span class="search-icon">🔍</span>
-                <input type="text" id="searchInput" placeholder="상품명, 브랜드, 성분 검색 (예: PDRN, 세라마이드)">
-            </div>
-            <div id="searchSuggestions" class="suggestions-box"></div>
-        </div>
+<main class="container">
 
-        <!-- 📊 탭 1: 대시보드 -->
-        <section id="dashboard-tab" class="tab-content active">
-            <div class="section-header">
-                <h2>🔥 올리브영 순위 급상승</h2>
-                <span class="subtitle">어제 대비 랭킹 변동</span>
-            </div>
-            <div id="olive-rising" class="product-grid"></div>
+  <!-- 🔍 스마트 검색 (자동완성) -->
+  <div class="search-wrapper">
+    <div class="search-input-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="searchInput" data-i18n-ph="search" placeholder="상품명·브랜드·성분 검색 (예: PDRN, 세라마이드)">
+    </div>
+    <div id="searchSuggestions" class="suggestions-box"></div>
+  </div>
 
-            <div class="section-header" style="margin-top: 40px;">
-                <h2>💎 다이소 뷰티 베스트</h2>
-                <span class="subtitle">가성비 인기 상품</span>
-            </div>
-            <div id="daiso-best" class="product-grid"></div>
-        </section>
+  <!-- 📊 탭 1: 대시보드 -->
+  <section id="dashboard-tab" class="tab-content active">
 
-        <!-- 🤖 탭 2: AI 트렌드 -->
-        <section id="ai-trends-tab" class="tab-content">
-            <h2>AI 트렌드 분석</h2>
-            <div id="trend-container">데이터를 불러오는 중...</div>
-        </section>
+    <!-- 검색 결과 (기본 숨김) -->
+    <section id="search-results" class="result-section" style="display:none;">
+      <div class="section-header">
+        <h2 id="search-results-title"></h2>
+        <button class="close-btn" onclick="closeSearchResults()">✕</button>
+      </div>
+      <div id="search-results-grid" class="product-grid"></div>
+    </section>
 
-        <!-- 🌿 탭 3: 성분별 -->
-        <section id="ingredients-tab" class="tab-content">
-            <h2>성분별 추천</h2>
-            <div id="ingredient-container">준비 중...</div>
-        </section>
-    </main>
+    <!-- 키워드 매칭 상품 (기본 숨김) -->
+    <section id="keyword-match" class="result-section" style="display:none;">
+      <div class="section-header">
+        <h2 id="keyword-match-title"></h2>
+        <button class="close-btn" onclick="closeKeywordMatch()">✕</button>
+      </div>
+      <div id="keyword-match-grid" class="product-grid"></div>
+    </section>
 
-    <script src="/static/app.js"></script>
+    <div id="sec-rising">
+      <div class="section-header">
+        <h2 data-i18n="rising">🔥 올리브영 순위 급등</h2>
+        <span class="subtitle" data-i18n="risingSub">어제 대비 랭킹 변동</span>
+      </div>
+      <div id="olive-rising" class="product-grid"></div>
+    </div>
+
+    <div id="sec-trends" style="margin-top:40px;">
+      <div class="section-header">
+        <h2 data-i18n="trends">🌿 트렌드 키워드</h2>
+        <span class="subtitle" data-i18n="trendsSub">키워드를 누르면 매칭 상품이 보여요</span>
+      </div>
+      <div id="trend-keywords" class="keyword-grid"></div>
+    </div>
+
+    <div id="sec-daiso" style="margin-top:40px;">
+      <div class="section-header">
+        <h2 data-i18n="daiso">💎 다이소 뷰티 베스트</h2>
+        <span class="subtitle" data-i18n="daisoSub">가성비 인기 상품</span>
+      </div>
+      <div id="daiso-best" class="product-grid"></div>
+    </div>
+
+    <div id="sec-rankings" style="margin-top:40px;">
+      <div class="section-header">
+        <h2 data-i18n="rankings">🏆 전체 상품 킹</h2>
+        <span class="subtitle" data-i18n="rankingsSub">올리브영·다이소 통합</span>
+      </div>
+      <div id="all-rankings" class="product-grid"></div>
+    </div>
+  </section>
+
+  <!-- 🤖  2: AI 트렌드 (일간/주간/월간 항상 노출) -->
+  <section id="ai-tab" class="tab-content">
+    <div class="section-header">
+      <h2 data-i18n="aiTitle">AI 트렌드 분석</h2>
+      <span class="subtitle" data-i18n="aiSub">기간을 선택하세요</span>
+    </div>
+    <div class="period-switch">
+      <button class="period-btn active" data-period="daily" data-i18n="daily">일간</button>
+      <button class="period-btn" data-period="weekly" data-i18n="weekly">주간</button>
+      <button class="period-btn" data-period="monthly" data-i18n="monthly">월간</button>
+    </div>
+    <div class="ai-card">
+      <h3 data-i18n="aiSummary">📌 요약</h3>
+      <p id="ai-summary" class="ai-summary">...</p>
+      <h3 data-i18n="aiEvidence">🔗 근거</h3>
+      <ul id="ai-evidence" class="ai-evidence"></ul>
+    </div>
+    <div class="ai-card">
+      <h3 data-i18n="aiPopular">🛒 인기 상품</h3>
+      <p id="ai-popular" class="ai-summary"></p>
+    </div>
+  </section>
+
+  <!-- 🌿 탭 3: 성분별 -->
+  <section id="ingredients-tab" class="tab-content">
+    <div class="section-header">
+      <h2 data-i18n="ingTitle">🌿 성분별 상품 보기</h2>
+      <span class="subtitle" data-i18n="ingSub">성분을 선택하세요</span>
+    </div>
+    <div id="ingredient-chips" class="keyword-grid"></div>
+    <div id="ingredient-results" class="product-grid" style="margin-top:20px;"></div>
+  </section>
+
+</main>
+<script src="/static/app.js"></script>
 </body>
 </html>
