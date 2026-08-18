@@ -9,7 +9,6 @@
 </head>
 <body>
 
-<!-- 📌 상단 고정 헤더 (언어 전환 + 탭) -->
 <header class="global-header">
   <div class="header-top">
     <h1 class="logo">🌸 K-Beauty</h1>
@@ -28,7 +27,6 @@
 
 <main class="container">
 
-  <!-- 🔍 스마트 검색 (자동완성) -->
   <div class="search-wrapper">
     <div class="search-input-box">
       <span class="search-icon">🔍</span>
@@ -37,10 +35,8 @@
     <div id="searchSuggestions" class="suggestions-box"></div>
   </div>
 
-  <!-- 📊 탭 1: 대시보드 -->
   <section id="dashboard-tab" class="tab-content active">
 
-    <!-- 검색 결과 (기본 숨김) -->
     <section id="search-results" class="result-section" style="display:none;">
       <div class="section-header">
         <h2 id="search-results-title"></h2>
@@ -49,7 +45,6 @@
       <div id="search-results-grid" class="product-grid"></div>
     </section>
 
-    <!-- 키워드 매칭 상품 (기본 숨김) -->
     <section id="keyword-match" class="result-section" style="display:none;">
       <div class="section-header">
         <h2 id="keyword-match-title"></h2>
@@ -60,42 +55,57 @@
 
     <div id="sec-rising">
       <div class="section-header">
-        <h2 data-i18n="rising">🔥 올리브영 순위 급등</h2>
-        <span class="subtitle" data-i18n="risingSub">어제 대비 랭킹 변동</span>
+        <div>
+          <h2 data-i18n="rising">🔥 올리브영 순위 급등</h2>
+          <span class="subtitle" data-i18n="risingSub">어제 대비 랭킹 변동</span>
+        </div>
       </div>
       <div id="olive-rising" class="product-grid"></div>
     </div>
 
     <div id="sec-trends" style="margin-top:40px;">
       <div class="section-header">
-        <h2 data-i18n="trends">🌿 트렌드 키워드</h2>
-        <span class="subtitle" data-i18n="trendsSub">키워드를 누르면 매칭 상품이 보여요</span>
+        <div>
+          <h2 data-i18n="trends">🌿 트렌드 키워드</h2>
+          <span class="subtitle" data-i18n="trendsSub">키워드를 누르면 매칭 상품이 보여요</span>
+        </div>
       </div>
       <div id="trend-keywords" class="keyword-grid"></div>
     </div>
 
     <div id="sec-daiso" style="margin-top:40px;">
       <div class="section-header">
-        <h2 data-i18n="daiso">💎 다이소 뷰티 베스트</h2>
-        <span class="subtitle" data-i18n="daisoSub">가성비 인기 상품</span>
+        <div>
+          <h2 data-i18n="daiso">💎 다이소 뷰티 베스트</h2>
+          <span class="subtitle" data-i18n="daisoSub">가성비 인기 상품</span>
+        </div>
       </div>
       <div id="daiso-best" class="product-grid"></div>
     </div>
 
+    <!-- 🏆 랭킹: 종합/올리브영/다이소 필터 -->
     <div id="sec-rankings" style="margin-top:40px;">
       <div class="section-header">
-        <h2 data-i18n="rankings">🏆 전체 상품 킹</h2>
-        <span class="subtitle" data-i18n="rankingsSub">올리브영·다이소 통합</span>
+        <div>
+          <h2 data-i18n="rankings">🏆 전체 상품 랭킹</h2>
+          <span class="subtitle" data-i18n="rankingsSub">종합·올리브영·다이소</span>
+        </div>
+      </div>
+      <div class="filter-switch">
+        <button class="filter-btn active" data-filter="all" data-i18n="all">종합</button>
+        <button class="filter-btn" data-filter="olive" data-i18n="olive">올리브영</button>
+        <button class="filter-btn" data-filter="daiso" data-i18n="daiso">다이소</button>
       </div>
       <div id="all-rankings" class="product-grid"></div>
     </div>
   </section>
 
-  <!-- 🤖  2: AI 트렌드 (일간/주간/월간 항상 노출) -->
   <section id="ai-tab" class="tab-content">
     <div class="section-header">
-      <h2 data-i18n="aiTitle">AI 트렌드 분석</h2>
-      <span class="subtitle" data-i18n="aiSub">기간을 선택하세요</span>
+      <div>
+        <h2 data-i18n="aiTitle">AI 트렌드 분석</h2>
+        <span class="subtitle" data-i18n="aiSub">기간을 선택하세요</span>
+      </div>
     </div>
     <div class="period-switch">
       <button class="period-btn active" data-period="daily" data-i18n="daily">일간</button>
@@ -114,11 +124,12 @@
     </div>
   </section>
 
-  <!-- 🌿 탭 3: 성분별 -->
   <section id="ingredients-tab" class="tab-content">
     <div class="section-header">
-      <h2 data-i18n="ingTitle">🌿 성분별 상품 보기</h2>
-      <span class="subtitle" data-i18n="ingSub">성분을 선택하세요</span>
+      <div>
+        <h2 data-i18n="ingTitle">🌿 성분별 상품 보기</h2>
+        <span class="subtitle" data-i18n="ingSub">성분을 선택하세요</span>
+      </div>
     </div>
     <div id="ingredient-chips" class="keyword-grid"></div>
     <div id="ingredient-results" class="product-grid" style="margin-top:20px;"></div>
