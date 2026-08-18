@@ -10,8 +10,8 @@ const API = {
 };
 
 const I18N = {
-  ko: { dashboard:'📊 대시보드', ai:'🤖 AI 트렌드', keywordsTab:'🗂️ 키워드별',
-    search:'상품명·브랜드 검색 (예: PDRN, 세라마이드)',
+  ko: { dashboard:'📊 메인', ai:'🤖 AI 트렌드분석', keywordsTab:'🗂️ 키워드별',
+    search:'상품명·브랜드 검색',
     rising:'🔥 올리브영 순위 급등',
     trends:'🌿 트렌드 키워드', trendsSub:'키워드를 누르면 매칭 상품이 보여요',
     daiso:'💎 다이소 뷰티 베스트', daisoSub:'리뷰·평점 기반 자체 랭킹',
@@ -24,7 +24,7 @@ const I18N = {
     other:'기타',
     vsDaily:'어제 대비 랭킹 변동', vsWeekly:'7일 전 대비 랭킹 변동', vsMonthly:'30일 전 대비 랭킹 변동',
     insufficient:'📉 데이터 부족',
-    insufficientDesc:'해당 기간 분석을 위한 히스토리 데이터가 아직 충분히 쌓이지 않았어요. 데이터를 더 모은 뒤 다시 확인해 주세요!' },
+    insufficientDesc:'해당 기간 분석을 위한 히스토리 데이터가 아직 충분히 쌓이지 않았어요.' },
   en: { dashboard:'📊 Dashboard', ai:'🤖 AI Trends', keywordsTab:'🗂️ By Keyword',
     search:'Search products, brands',
     rising:'🔥 Olive Young Rising',
@@ -39,7 +39,7 @@ const I18N = {
     other:'Others',
     vsDaily:'Rank change vs yesterday', vsWeekly:'Rank change vs 7 days ago', vsMonthly:'Rank change vs 30 days ago',
     insufficient:'📉 Not enough data',
-    insufficientDesc:'Not enough history data for this period yet. Please check back after more data is collected!' },
+    insufficientDesc:'Not enough history data for this period yet.' },
   ar: { dashboard:'📊 الرئيسية', ai:'🤖 تحليل AI', keywordsTab:'🗂️ حسب الكلمة',
     search:'ابحث عن منتج أو علامة',
     rising:'🔥 الأكثر صعوداً',
@@ -54,7 +54,7 @@ const I18N = {
     other:'أخرى',
     vsDaily:'تغيّر الترتيب عن الأمس', vsWeekly:'تغيّر الترتيب عن ٧ أيام', vsMonthly:'تغيّر الترتيب عن ٣٠ يوماً',
     insufficient:'📉 بيانات غير كافية',
-    insufficientDesc:'لا توجد بيانات تاريخية كافية لهذه الفترة بعد. يرجى التحقق لاحقاً بعد جمع المزيد من البيانات!' }
+    insufficientDesc:'لا توجد بيانات تاريخية كافية لهذه الفترة بعد.' }
 };
 
 const isArr = a => Array.isArray(a) && a.length > 0;
@@ -95,7 +95,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadDashboard();
 });
 
-/* ========== 설정 ========== */
 function setupTabs() {
   document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -134,7 +133,6 @@ function setupFilter() {
   }));
 }
 
-/* ========== 데이터 ========== */
 async function safeJson(url) { try { const r = await fetch(url); return r.ok ? await r.json() : null; } catch (e) { return null; } }
 
 async function loadAI() {
@@ -194,7 +192,6 @@ async function loadProductsPool() {
   if (!oliveList.length) oliveList = productPool.filter(p => F.source(p).includes('olive'));
 }
 
-/* ========== 기간별 트렌드 키워드 ========== */
 function parseKeywordsFromSummary(summary) {
   const m = String(summary || '').match(/(?:주요\s*키워드|key\s*keywords?|الكلمات\s*الرئيسية)\s*[:：]\s*([^|]+)/i);
   if (!m) return [];
@@ -230,7 +227,6 @@ function drawTrendChips(items) {
   toggleSec('sec-trends', items.length);
 }
 
-/* ========== 렌더링 ========== */
 function badgeHtml(p) {
   const s = F.source(p);
   return s.includes('daiso') ? '<span class="badge badge-daiso">🔵 다이소</span>'
@@ -286,7 +282,6 @@ async function onKeywordClick(kw) {
 }
 function closeKeywordMatch() { document.getElementById('keyword-match').style.display = 'none'; }
 
-/* ========== 검색 ========== */
 function setupSearch() {
   const input = document.getElementById('searchInput');
   const box = document.getElementById('searchSuggestions');
@@ -319,7 +314,6 @@ async function doSearch(q) {
 }
 function closeSearchResults() { document.getElementById('search-results').style.display = 'none'; }
 
-/* ========== 🚨 키워드별 전체 상품 ========== */
 function renderKeywordChips() {
   const lang = currentLang;
   const t = I18N[lang] || I18N.ko;
