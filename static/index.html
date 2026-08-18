@@ -41,8 +41,10 @@
     <div id="searchSuggestions" class="suggestions-box"></div>
   </div>
 
+  <!-- ==================== 대시보드 탭 ==================== -->
   <section id="dashboard-tab" class="tab-content active">
 
+    <!-- 검색 결과 (숨김 상태) -->
     <section id="search-results" class="result-section" style="display:none;">
       <div class="section-header">
         <h2 id="search-results-title"></h2>
@@ -51,6 +53,7 @@
       <div id="search-results-grid" class="product-grid"></div>
     </section>
 
+    <!-- 키워드 매칭 결과 (숨김 상태) -->
     <section id="keyword-match" class="result-section" style="display:none;">
       <div class="section-header">
         <h2 id="keyword-match-title"></h2>
@@ -59,72 +62,98 @@
       <div id="keyword-match-grid" class="product-grid"></div>
     </section>
 
-    <!-- ✅ 2단 분할: 좌 올리브영 급등 / 우 다이소 주목 -->
+    <!-- 2단 분할: 올리브영 급등 + 다이소 주목 -->
     <div class="duo-section">
+      <!-- 좌측: 올리브영 급등 (접기/펼치기) -->
       <div id="sec-rising" class="duo-col">
-        <div class="section-header">
+        <div class="section-header collapsible-header" onclick="toggleSection('sec-rising-body')">
           <div>
             <h2 data-i18n="rising">🔥 올리브영 순위 급등</h2>
             <span class="subtitle" id="rising-sub"></span>
           </div>
+          <span class="toggle-icon">▼</span>
         </div>
-        <div id="olive-rising" class="product-grid"></div>
+        <div id="sec-rising-body" class="collapsible-body">
+          <div id="olive-rising" class="product-grid"></div>
+        </div>
       </div>
 
+      <!-- 우측: 다이소 주목 (접기/펼치기) -->
       <div id="sec-daiso-spot" class="duo-col">
-        <div class="section-header">
+        <div class="section-header collapsible-header" onclick="toggleSection('sec-daiso-spot-body')">
           <div>
             <h2 data-i18n="daisoSpot">💎 다이소 주목 상품</h2>
             <span class="subtitle" data-i18n="daisoSpotSub">평점·리뷰·신상 기반</span>
           </div>
-          <button class="more-btn" onclick="showDaisoRankings()" data-i18n="seeAll">전체 보기 ➜</button>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="more-btn" onclick="event.stopPropagation();showDaisoRankings()" data-i18n="seeAll">전체 보기 ➜</button>
+            <span class="toggle-icon">▼</span>
+          </div>
         </div>
-        <div id="daiso-spot" class="product-grid"></div>
+        <div id="sec-daiso-spot-body" class="collapsible-body">
+          <div id="daiso-spot" class="product-grid"></div>
+        </div>
       </div>
     </div>
 
+    <!-- 트렌드 키워드 (접기/펼치기) -->
     <div id="sec-trends" style="margin-top:40px;">
-      <div class="section-header">
+      <div class="section-header collapsible-header" onclick="toggleSection('sec-trends-body')">
         <div>
           <h2 data-i18n="trends">🌿 트렌드 키워드</h2>
           <span class="subtitle" data-i18n="trendsSub">키워드를 누르면 매칭 상품이 보여요</span>
         </div>
+        <span class="toggle-icon">▼</span>
       </div>
-      <div id="trend-keywords" class="keyword-grid"></div>
+      <div id="sec-trends-body" class="collapsible-body">
+        <div id="trend-keywords" class="keyword-grid"></div>
+      </div>
     </div>
 
-    <!-- ✅ 하단 랭킹 3종 (각 30위) -->
+    <!-- 전체 랭킹 TOP 30 (접기/펼치기) -->
     <div id="sec-rankings" style="margin-top:40px;">
-      <div class="section-header">
+      <div class="section-header collapsible-header" onclick="toggleSection('sec-rankings-body')">
         <div>
-          <h2 data-i18n="rankings">🏆 전체 킹</h2>
+          <h2 data-i18n="rankings">🏆 전체 랭킹</h2>
           <span class="subtitle" data-i18n="rankingsSub">올리브영·다이소 통합 TOP 30</span>
         </div>
+        <span class="toggle-icon">▼</span>
       </div>
-      <div id="all-rankings" class="product-grid"></div>
+      <div id="sec-rankings-body" class="collapsible-body">
+        <div id="all-rankings" class="product-grid"></div>
+      </div>
     </div>
 
+    <!-- 올리브영 랭킹 TOP 30 (접기/펼치기) -->
     <div id="sec-olive-rankings" style="margin-top:40px;">
-      <div class="section-header">
+      <div class="section-header collapsible-header" onclick="toggleSection('sec-olive-rankings-body')">
         <div>
           <h2 data-i18n="oliveRankings">🫒 올리브영 랭킹</h2>
           <span class="subtitle" data-i18n="oliveRankSub">판매 랭킹 TOP 30</span>
         </div>
+        <span class="toggle-icon">▼</span>
       </div>
-      <div id="olive-rankings" class="product-grid"></div>
+      <div id="sec-olive-rankings-body" class="collapsible-body">
+        <div id="olive-rankings" class="product-grid"></div>
+      </div>
     </div>
 
+    <!-- 다이소 랭킹 TOP 30 (접기/펼치기) -->
     <div id="sec-daiso-rankings" style="margin-top:40px;">
-      <div class="section-header">
+      <div class="section-header collapsible-header" onclick="toggleSection('sec-daiso-rankings-body')">
         <div>
           <h2 data-i18n="daisoRankings">🔵 다이소 랭킹</h2>
           <span class="subtitle" data-i18n="daisoRankSub">리뷰·평점 기반 자체 랭킹 TOP 30</span>
         </div>
+        <span class="toggle-icon">▼</span>
       </div>
-      <div id="daiso-rankings" class="product-grid"></div>
+      <div id="sec-daiso-rankings-body" class="collapsible-body">
+        <div id="daiso-rankings" class="product-grid"></div>
+      </div>
     </div>
   </section>
 
+  <!-- ==================== AI 트렌드 탭 ==================== -->
   <section id="ai-tab" class="tab-content">
     <div class="section-header">
       <div>
@@ -144,6 +173,7 @@
     </div>
   </section>
 
+  <!-- ==================== 키워드별 탭 ==================== -->
   <section id="keywords-tab" class="tab-content">
     <div class="section-header">
       <div>
@@ -155,11 +185,12 @@
     <div id="keyword-results" class="product-grid" style="margin-top:20px;"></div>
   </section>
 
+  <!-- ==================== 전체상품 탭 ==================== -->
   <section id="allproducts-tab" class="tab-content">
     <div class="section-header">
       <div>
         <h2 data-i18n="allProducts">🛍️ 전체상품</h2>
-        <span class="subtitle" data-i18n="allProductsSub">대카테고리별 · 인기순 정렬</span>
+        <span class="subtitle" data-i18n="allProductsSub">대카테고리별 · 인기순 정렬 (클릭하여 펼치기)</span>
       </div>
     </div>
     <div id="allproducts-container"></div>
