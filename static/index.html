@@ -2,421 +2,66 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>종합 - K-Beauty 소싱 가이드</title>
-    <style>
-        :root { --bg: #0b1020; --card: #161d36; --card2: #1e2749; --text: #eef1ff; --muted: #8f97bd; --accent: #7c5cff; --green: #3ddc97; --yellow: #ffd166; }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; padding: 16px; max-width: 900px; margin: 0 auto; }
-        .hero { position: relative; background: linear-gradient(135deg, #1b2340, #2a1b4d); border-radius: 20px; padding: 24px; margin-bottom: 20px; }
-        h1 { font-size: 24px; margin-bottom: 8px; }
-        h2 { font-size: 18px; margin: 24px 0 12px; }
-        .muted { color: var(--muted); font-size: 12px; }
-        .hint { color: var(--muted); font-size: 11px; margin: -8px 0 10px; }
-        .card { background: var(--card); border-radius: 16px; padding: 16px; margin-bottom: 16px; }
-        .langs { position: absolute; top: 16px; inset-inline-end: 16px; display: flex; gap: 6px; }
-        .lang { background: var(--card2); border: 1px solid #2a3560; color: var(--muted); border-radius: 8px; padding: 4px 9px; font-size: 11px; cursor: pointer; }
-        .lang.on { background: var(--accent); color: #fff; border-color: var(--accent); }
-        .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid #2a3560; padding-bottom: 12px; flex-wrap: wrap; }
-        .tab-btn { background: var(--card); border: 1px solid #2a3560; color: var(--muted); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-        .chips { display: flex; gap: 8px; flex-wrap: wrap; }
-        .chip { background: var(--card2); border: 1px solid #2a3560; border-radius: 999px; padding: 8px 14px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
-        .chip:hover { border-color: var(--accent); color: var(--accent); }
-        .chip .score { color: var(--yellow); margin-left: 6px; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        @media (max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } }
-        .hl-card { background: var(--card2); border-radius: 12px; padding: 14px; }
-        .hl-card h3 { font-size: 15px; margin-bottom: 10px; color: var(--accent); }
-        .row { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 8px; cursor: pointer; transition: background 0.1s; }
-        .row:hover { background: var(--card2); }
-        .rank-badge { min-width: 28px; height: 28px; border-radius: 6px; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; }
-        .info { flex: 1; min-width: 0; }
-        .info b { font-size: 14px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; }
-        .badge-oy { background: #e0f7e9; color: #04291a; }
-        .badge-ds { background: #ffe0b2; color: #3e2723; }
-        .search-link { text-decoration: none; font-size: 14px; }
-        .chev { color: var(--muted); font-size: 12px; }
-        .detail { display: none; margin: -4px 0 10px 40px; background: var(--card2); border-radius: 10px; padding: 12px; }
-        .detail.open { display: block; }
-        .detail-grid { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
-        .detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-        .detail-actions a { background: var(--accent); color: #fff; padding: 7px 12px; border-radius: 8px; font-size: 12px; text-decoration: none; font-weight: bold; }
-        .detail-actions a.secondary { background: var(--card); border: 1px solid #2a3560; color: var(--text); }
-        .ai-summary { font-size: 13px; line-height: 1.7; margin-bottom: 10px; }
-        .ai-ev { list-style: none; display: flex; flex-direction: column; gap: 6px; }
-        .ai-ev li { background: var(--card2); border: 1px solid #2a3560; border-radius: 10px; padding: 8px 12px; font-size: 12px; color: var(--muted); }
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
-        .modal.open { display: flex; }
-        .modal-content { background: var(--card); border-radius: 16px; max-width: 600px; width: 100%; max-height: 80vh; overflow-y: auto; padding: 20px; }
-        .close-btn { float: right; background: var(--card2); border: none; color: var(--text); padding: 6px 10px; border-radius: 6px; cursor: pointer; }
-        
-        /* 검색창 스타일 추가 */
-        .search-box { display: flex; gap: 8px; margin-bottom: 20px; }
-        .search-box input { flex: 1; background: var(--card); border: 1px solid #2a3560; color: var(--text); padding: 14px 18px; border-radius: 12px; font-size: 15px; outline: none; transition: border 0.2s; }
-        .search-box input:focus { border-color: var(--accent); }
-        .search-box button { background: var(--accent); border: none; color: #fff; padding: 0 20px; border-radius: 12px; font-size: 18px; cursor: pointer; }
-        .load-more-btn { display: block; width: 100%; padding: 14px; background: var(--card2); border: 1px solid #2a3560; color: var(--accent); font-weight: bold; border-radius: 12px; margin-top: 12px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
-        .load-more-btn:hover { background: var(--accent); color: #fff; }
-        .clear-btn { display: block; width: 100%; padding: 12px; background: transparent; border: 1px solid #2a3560; color: var(--muted); font-weight: bold; border-radius: 12px; margin-top: 8px; cursor: pointer; font-size: 13px; }
-    </style>
+    <!-- 1순위: 모바일 좌우 짤림 방지 핵심 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>K-Beauty Intelligence</title>
+    
+    <!-- 2순위: Fuse.js (AI 자동완성 검색 엔진) -->
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <div class="hero">
-        <div class="langs">
-            <button class="lang" data-lang="ko">한국어</button>
-            <button class="lang" data-lang="en">EN</button>
-            <button class="lang" data-lang="ar">العربية</button>
+
+    <!-- 📌 상단 고정 네비게이션 (어디서든 탭 이동 가능) -->
+    <header class="global-header">
+        <div class="header-top">
+            <h1 class="logo">🌸 K-Beauty</h1>
         </div>
-        <h1 id="title"></h1>
-        <p class="muted" id="subtitle"></p>
-    </div>
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="dashboard">📊 대시보드</button>
+            <button class="tab-btn" data-tab="ai-trends">🤖 AI 트렌드</button>
+            <button class="tab-btn" data-tab="ingredients">🌿 성분별</button>
+        </nav>
+    </header>
 
-    <!-- 검색창 UI -->
-    <div class="search-box">
-        <input type="text" id="searchInput" onkeyup="if(event.key==='Enter')performSearch(true)" />
-        <button id="searchBtn" onclick="performSearch(true)">🔍</button>
-    </div>
-
-    <!-- 검색 결과 섹션 (초기 숨김) -->
-    <div id="searchSection" style="display:none;">
-        <h2 id="hSearch"></h2>
-        <p class="hint" id="searchMeta"></p>
-        <div class="card" id="searchList" style="padding:0;"></div>
-        <button id="loadMoreBtn" class="load-more-btn" onclick="performSearch(false)"></button>
-        <button class="clear-btn" onclick="clearSearch()">✕ <span id="clearText"></span></button>
-    </div>
-
-    <!-- 기존 대시보드 섹션 -->
-    <div id="listSections">
-        <div class="tabs">
-            <button class="tab-btn active" data-period="daily" id="tabDaily"></button>
-            <button class="tab-btn" data-period="weekly" id="tabWeekly"></button>
-            <button class="tab-btn" data-period="monthly" id="tabMonthly"></button>
-            <button class="tab-btn" data-period="ai" id="tabAI"></button>
+    <main class="container">
+        <!-- 🔍 스마트 검색창 -->
+        <div class="search-wrapper">
+            <div class="search-input-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" placeholder="상품명, 브랜드, 성분 검색 (예: PDRN, 세라마이드)">
+            </div>
+            <div id="searchSuggestions" class="suggestions-box"></div>
         </div>
 
-        <h2 id="hTrends"></h2>
-        <div class="chips" id="trendChips"></div>
+        <!-- 📊 탭 1: 대시보드 -->
+        <section id="dashboard-tab" class="tab-content active">
+            <div class="section-header">
+                <h2>🔥 올리브영 순위 급상승</h2>
+                <span class="subtitle">어제 대비 랭킹 변동</span>
+            </div>
+            <div id="olive-rising" class="product-grid"></div>
 
-        <h2 id="hHighlights"></h2>
-        <div class="grid-2">
-            <div class="hl-card"><h3 id="hlOyTitle"></h3><div id="hlOliveyoung"></div></div>
-            <div class="hl-card"><h3 id="hlDsTitle"></h3><div id="hlDaiso"></div></div>
-        </div>
+            <div class="section-header" style="margin-top: 40px;">
+                <h2>💎 다이소 뷰티 베스트</h2>
+                <span class="subtitle">가성비 인기 상품</span>
+            </div>
+            <div id="daiso-best" class="product-grid"></div>
+        </section>
 
-        <h2 id="hRankings"></h2>
-        <div class="tabs">
-            <button class="tab-btn active" data-rank="overall" id="rankOverall"></button>
-            <button class="tab-btn" data-rank="oliveyoung" id="rankOY"></button>
-            <button class="tab-btn" data-rank="daiso" id="rankDS"></button>
-        </div>
-        <p class="hint" id="hintRank"></p>
-        <div class="card" id="rankingsList" style="padding:0;"></div>
-    </div>
+        <!-- 🤖 탭 2: AI 트렌드 -->
+        <section id="ai-trends-tab" class="tab-content">
+            <h2>AI 트렌드 분석</h2>
+            <div id="trend-container">데이터를 불러오는 중...</div>
+        </section>
 
-    <div id="aiSection" style="display:none"><div id="aiWrap"></div></div>
+        <!-- 🌿 탭 3: 성분별 -->
+        <section id="ingredients-tab" class="tab-content">
+            <h2>성분별 추천</h2>
+            <div id="ingredient-container">준비 중...</div>
+        </section>
+    </main>
 
-    <div class="modal" id="keywordModal">
-        <div class="modal-content">
-            <button class="close-btn" onclick="closeModal()">✕</button>
-            <h2 id="modalTitle"></h2>
-            <p class="muted" id="modalSub" style="margin-bottom:12px"></p>
-            <div id="modalProducts"></div>
-        </div>
-    </div>
-
-    <script>
-        const $ = s => document.querySelector(s);
-        const fmtPrice = v => v == null ? '' : '₩' + Number(v).toLocaleString('ko-KR');
-        let currentPeriod = 'daily';
-        let currentRankTab = 'overall';
-        let LANG = localStorage.getItem('lang') || 'ko';
-
-        // 검색 관련 변수
-        let searchPage = 1;
-        let searchQuery = '';
-
-        const I18N = {
-            ko: {title:'📊 종합', subtitle:'올리브영 · 다이소 뷰티 소싱 인사이트', pDaily:'일간 (Daily)', pWeekly:'주간 (Weekly)', pMonthly:'월간 (Monthly)', pAI:'✨ AI 트렌드 분석',
-                trends:'🔥 트렌드 키워드', highlights:'🛒 플랫폼별 하이라이트', oyCard:'🌿 올리브영 (순위 급등 · 신규)', dsCard:'💸 다이소 (인기 화장품)',
-                rankings:'🏆 누적 랭킹', rOverall:'전체 랭킹', rOY:'올리브영', rDS:'다이소', hint:'상품을 누르면 짤막한 정보와 연동 사이트 링크가 열립니다.',
-                brand:'브랜드', price:'가격', score:'점수', open:'상품 페이지 열기 ↗', searchDs:'🔍 다이소몰에서 검색',
-                evidence:'📎 분석 근거', loading:'불러오는 중...', noData:'데이터 없음', fail:'데이터 로드 실패', modalList:'매칭되는 전체 상품 목록 (인기순)', new:'NEW', steps:'계단',
-                searchPlace:'검색 (예: sunstick, 나이아신아마이드, 썬스틱)', searchRes:'🔍 검색 결과', loadMore:'더보기 (Load More)', noRes:'검색 결과가 없습니다.', clear:'검색 지우고 대시보드로 돌아가기'},
-            en: {title:'📊 Overview', subtitle:'Olive Young · Daiso beauty sourcing insights', pDaily:'Daily', pWeekly:'Weekly', pMonthly:'Monthly', pAI:'✨ AI Trend Analysis',
-                trends:'🔥 Trend Keywords', highlights:'🛒 Platform Highlights', oyCard:'🌿 Olive Young (Rising · New)', dsCard:'💸 Daiso (Popular Cosmetics)',
-                rankings:'🏆 Cumulative Rankings', rOverall:'Overall', rOY:'Olive Young', rDS:'Daiso', hint:'Tap a product for brief info and source-site links.',
-                brand:'Brand', price:'Price', score:'Score', open:'Open product page ↗', searchDs:'🔍 Search on Daiso Mall',
-                evidence:'📎 Evidence', loading:'Loading...', noData:'No data', fail:'Load failed', modalList:'Full matched product list (by popularity)', new:'NEW', steps:'steps',
-                searchPlace:'Search (e.g., sunstick, Niacinamide)', searchRes:'🔍 Search Results', loadMore:'Load More', noRes:'No results found.', clear:'Clear search and return to dashboard'},
-            ar: {title:'📊 نظرة شاملة', subtitle:'تحليلات توريد منتجات الجمال من أوليف يونغ ودايسو', pDaily:'يومي', pWeekly:'أسبوعي', pMonthly:'شهري', pAI:'✨ تحليل الاتجاهات بالAI',
-                trends:'🔥 كلمات الاتجاه', highlights:'🛒 أبرز المنصات', oyCard:'🌿 أوليف يونغ (صاعد · جديد)', dsCard:'💸 دايسو (مستحضرات شائعة)',
-                rankings:'🏆 التصنيف التراكمي', rOverall:'الكل', rOY:'أوليف يونغ', rDS:'دايسو', hint:'اضغط على منتج لعرض معلومات موجزة وروابط الموقع.',
-                brand:'العلامة', price:'السعر', score:'النقاط', open:'فتح صفحة المنتج ↗', searchDs:'🔍 بحث في دايسو',
-                evidence:'📎 أساس التحليل', loading:'جارٍ التحميل...', noData:'لا توجد بيانات', fail:'فشل التحميل', modalList:'القائمة الكاملة للمنتجات المطابقة (حسب الشعبية)', new:'جديد', steps:'مركز',
-                searchPlace:'بحث (مثل sunstick، النياسيناميد)', searchRes:'🔍 نتائج البحث', loadMore:'تحميل المزيد', noRes:'لا توجد نتائج.', clear:'مسح البحث والعودة'}
-        };
-        const T = () => I18N[LANG] || I18N.ko;
-
-        function applyLang(){
-            const L = T();
-            document.documentElement.lang = LANG;
-            document.documentElement.dir = (LANG === 'ar') ? 'rtl' : 'ltr';
-            $('#title').textContent = L.title; $('#subtitle').textContent = L.subtitle;
-            $('#tabDaily').textContent = L.pDaily; $('#tabWeekly').textContent = L.pWeekly;
-            $('#tabMonthly').textContent = L.pMonthly; $('#tabAI').textContent = L.pAI;
-            $('#hTrends').textContent = L.trends; $('#hHighlights').textContent = L.highlights;
-            $('#hlOyTitle').textContent = L.oyCard; $('#hlDsTitle').textContent = L.dsCard;
-            $('#hRankings').textContent = L.rankings; $('#rankOverall').textContent = L.rOverall;
-            $('#rankOY').textContent = L.rOY; $('#rankDS').textContent = L.rDS;
-            $('#hintRank').textContent = L.hint; $('#modalSub').textContent = L.modalList;
-            $('#searchInput').placeholder = L.searchPlace; $('#hSearch').textContent = L.searchRes;
-            $('#loadMoreBtn').textContent = L.loadMore; $('#clearText').textContent = L.clear;
-            document.querySelectorAll('.lang').forEach(b => b.classList.toggle('on', b.dataset.lang === LANG));
-        }
-
-        document.querySelectorAll('.lang').forEach(b => b.onclick = async () => {
-            LANG = b.dataset.lang; localStorage.setItem('lang', LANG); applyLang();
-            if (currentPeriod === 'ai') await loadAI();
-            else if (window.__DATA) renderDashboard(window.__DATA);
-        });
-
-        // ============================================================
-        // 검색 로직
-        // ============================================================
-        async function performSearch(reset = true) {
-            const input = $('#searchInput').value.trim();
-            if (!input) { clearSearch(); return; }
-
-            if (reset) {
-                searchPage = 1;
-                searchQuery = input;
-                $('#searchList').innerHTML = `<p class="muted" style="padding:16px">${T().loading}</p>`;
-                $('#loadMoreBtn').style.display = 'none';
-                $('#listSections').style.display = 'none';
-                $('#searchSection').style.display = 'block';
-            }
-
-            try {
-                const res = await fetch(`/api/app/search?q=${encodeURIComponent(searchQuery)}&page=${searchPage}`);
-                const data = await res.json();
-                renderSearchResults(data, reset);
-            } catch (e) {
-                console.error(e);
-                if (reset) $('#searchList').innerHTML = `<p class="muted" style="padding:16px">${T().fail}</p>`;
-            }
-        }
-
-        function renderSearchResults(data, reset) {
-            const L = T();
-            const list = data.products || [];
-            
-            if (reset) {
-                const countStr = data.total_count > 0 ? `${data.total_count} ${L.searchRes}` : L.noRes;
-                $('#searchMeta').innerHTML = `${countStr} <span class="muted">(${data.keywords.join(', ')})</span>`;
-            }
-
-            const html = list.map((p, i) => {
-                const globalIndex = (searchPage - 1) * data.limit + i + 1;
-                return `
-                    <div class="row" onclick="toggleDetail(this)">
-                        <span class="rank-badge">${globalIndex}</span>
-                        <div class="info">
-                            <b>${p.product_name}</b>
-                            <span class="muted">${(p.brand || '').replace(/<[^>]*>/g,'')}</span>
-                        </div>
-                        <span class="muted">${p.platform_badge || ''}</span>
-                        <span class="muted">${fmtPrice(p.sale_price ?? p.price)}</span>
-                        <span class="chev">▾</span>
-                    </div>
-                    <div class="detail">
-                        <div class="detail-grid">
-                            <span>${L.brand} ${(p.brand || '-').replace(/<[^>]*>/g,'')}</span>
-                            <span>${L.price} ${fmtPrice(p.sale_price ?? p.price) || '-'}</span>
-                            ${p.latest_rank ? `<span>Rank ${p.latest_rank}</span>` : ''}
-                        </div>
-                        <div class="detail-actions">
-                            <a href="${p.product_url}" target="_blank">${L.open}</a>
-                            ${p.search_url ? `<a class="secondary" href="${p.search_url}" target="_blank">${L.searchDs}</a>` : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            if (reset) {
-                $('#searchList').innerHTML = html || `<p class="muted" style="padding:16px">${L.noRes}</p>`;
-            } else {
-                $('#searchList').insertAdjacentHTML('beforeend', html);
-            }
-
-            if (data.has_more) {
-                $('#loadMoreBtn').style.display = 'block';
-            } else {
-                $('#loadMoreBtn').style.display = 'none';
-            }
-        }
-
-        function clearSearch() {
-            $('#searchInput').value = '';
-            $('#searchSection').style.display = 'none';
-            $('#listSections').style.display = 'block';
-        }
-
-        // ============================================================
-        // 기존 대시보드 로직
-        // ============================================================
-        function searchLink(p){
-            if(!p.search_url) return '';
-            return `<a class="search-link" href="${p.search_url}" target="_blank" onclick="event.stopPropagation()">🔍</a>`;
-        }
-
-        async function fetchDashboard(period) {
-            try {
-                const res = await fetch(`/api/app/dashboard?period=${period}`);
-                renderDashboard(await res.json());
-            } catch (e) { console.error(e); }
-        }
-
-        function renderDashboard(data) {
-            const L = T();
-            window.__DATA = data;
-            $('#trendChips').innerHTML = (data.trends||[]).map(t =>
-                `<span class="chip" onclick="openKeywordModal('${(t.keyword||'').replace(/'/g,"\\'")}')">${t.keyword}<span class="score">${Math.round(t.score || 0)}</span></span>`
-            ).join('') || `<p class="muted">${L.noData}</p>`;
-            $('#hlOliveyoung').innerHTML = (data.highlights.oliveyoung||[]).map(hlOY).join('') || `<p class="muted">${L.noData}</p>`;
-            $('#hlDaiso').innerHTML = (data.highlights.daiso||[]).map((p,i)=>hlDS(p,i)).join('') || `<p class="muted">${L.noData}</p>`;
-            window.__RANKINGS = data.rankings;
-            renderRankings(data.rankings);
-        }
-
-        function hlOY(p){
-            const L = T();
-            const badge = (p.previous_rank == null)
-                ? `<span class="badge badge-oy">${L.new}</span>`
-                : `<span class="badge badge-oy">▲${p.rank_change}${L.steps}</span>`;
-            return `<div class="row" onclick="window.open('${p.product_url}','_blank')">${badge}
-                <div class="info"><b>${p.product_name}</b></div></div>`;
-        }
-
-        function hlDS(p, i){
-            return `<div class="row" onclick="window.open('${p.product_url}','_blank')">
-                <span class="badge badge-ds">${i+1}위</span>
-                <div class="info"><b>${p.product_name}</b></div>
-                ${searchLink(p)}</div>`;
-        }
-
-        function renderRankings(rankings) {
-            const L = T();
-            const list = rankings[currentRankTab] || [];
-            $('#rankingsList').innerHTML = list.map((p, i) => `
-                <div class="row" onclick="toggleDetail(this)">
-                    <span class="rank-badge">${i + 1}</span>
-                    <div class="info"><b>${p.product_name}</b><span class="muted">${(p.brand || '').replace(/<[^>]*>/g,'')}</span></div>
-                    <span class="muted">${p.platform_badge || ''}</span>
-                    <span class="muted">${fmtPrice(p.sale_price ?? p.price)}</span>
-                    <span class="chev">▾</span>
-                </div>
-                <div class="detail">
-                    <div class="detail-grid">
-                        <span>${L.brand} ${(p.brand || '-').replace(/<[^>]*>/g,'')}</span>
-                        <span>${L.price} ${fmtPrice(p.sale_price ?? p.price) || '-'}</span>
-                        ${p.score != null ? `<span>${L.score} ${p.score}</span>` : ''}
-                    </div>
-                    <div class="detail-actions">
-                        <a href="${p.product_url}" target="_blank">${L.open}</a>
-                        ${p.search_url ? `<a class="secondary" href="${p.search_url}" target="_blank">${L.searchDs}</a>` : ''}
-                    </div>
-                </div>
-            `).join('') || `<p class="muted" style="padding:16px">${L.noData}</p>`;
-        }
-
-        function toggleDetail(rowEl) {
-            const d = rowEl.nextElementSibling;
-            if (!d) return;
-            d.classList.toggle('open');
-            const chev = rowEl.querySelector('.chev');
-            if (chev) chev.textContent = d.classList.contains('open') ? '▴' : '▾';
-        }
-
-        async function loadAI(){
-            const L = T();
-            $('#aiWrap').innerHTML = `<p class="muted">${L.loading}</p>`;
-            try {
-                const res = await fetch('/api/app/ai?lang=' + LANG);
-                renderAI((await res.json()).analysis);
-            } catch(e) { $('#aiWrap').innerHTML = `<p class="muted">${L.fail}</p>`; }
-        }
-
-        function renderAI(a){
-            const L = T();
-            const order = [["daily", L.pDaily], ["weekly", L.pWeekly], ["monthly", L.pMonthly]];
-            $('#aiWrap').innerHTML = order.map(([k, label]) => {
-                const sec = (a||{})[k] || {};
-                return `<div class="card">
-                    <h3 style="color:var(--accent);margin-bottom:10px">${label}</h3>
-                    <p class="ai-summary">${sec.summary || ''}</p>
-                    <div class="muted" style="margin-bottom:6px">${L.evidence}</div>
-                    <ul class="ai-ev">${(sec.evidence||[]).map(e => `<li>📎 ${e}</li>`).join('')}</ul>
-                </div>`;
-            }).join('');
-        }
-
-        async function switchPeriod(p){
-            currentPeriod = p;
-            if (p === 'ai') {
-                $('#listSections').style.display = 'none';
-                $('#searchSection').style.display = 'none';
-                $('#aiSection').style.display = 'block';
-                await loadAI();
-            } else {
-                $('#searchSection').style.display = 'none';
-                $('#listSections').style.display = 'block';
-                $('#aiSection').style.display = 'none';
-                fetchDashboard(p);
-            }
-        }
-
-        async function openKeywordModal(kw) {
-            $('#modalTitle').textContent = `#${kw}`;
-            $('#modalProducts').innerHTML = T().loading;
-            $('#keywordModal').classList.add('open');
-            try {
-                const res = await fetch(`/api/app/keyword/${encodeURIComponent(kw)}`);
-                const data = await res.json();
-                $('#modalProducts').innerHTML = data.products.map((p, i) => `
-                    <div class="row" onclick="window.open('${p.product_url}', '_blank')">
-                        <span class="rank-badge">${i + 1}</span>
-                        <span class="badge ${p.platform_badge === '🌿' ? 'badge-oy' : 'badge-ds'}">${p.platform_badge}</span>
-                        <div class="info"><b>${p.product_name}</b><span class="muted">${(p.brand || '').replace(/<[^>]*>/g,'')} · ${fmtPrice(p.price || p.sale_price)}</span></div>
-                        ${searchLink(p)}
-                    </div>
-                `).join('') || `<p class="muted">${T().noData}</p>`;
-            } catch (e) { $('#modalProducts').innerHTML = `<p class="muted">${T().fail}</p>`; }
-        }
-
-        function closeModal() { $('#keywordModal').classList.remove('open'); }
-
-        document.querySelectorAll('.tab-btn[data-period]').forEach(btn => {
-            btn.onclick = () => {
-                document.querySelectorAll('.tab-btn[data-period]').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                switchPeriod(btn.dataset.period);
-            };
-        });
-
-        document.querySelectorAll('.tab-btn[data-rank]').forEach(btn => {
-            btn.onclick = () => {
-                document.querySelectorAll('.tab-btn[data-rank]').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                currentRankTab = btn.dataset.rank;
-                if (window.__RANKINGS) renderRankings(window.__RANKINGS);
-            };
-        });
-
-        applyLang();
-        fetchDashboard(currentPeriod);
-    </script>
+    <script src="/static/app.js"></script>
 </body>
 </html>
