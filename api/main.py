@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.ai import router as ai_router          # 🚨 먼저 등록 (app의 /api/app/ai 덮어씀)
+from api.ai import router as ai_router          # 🚨 먼저 등록
 from api.app import router as app_router
 from api.catalog import router as catalog_router
 from api.periods import router as periods_router
@@ -27,7 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(ai_router)        # 🚨 순서 중요!
+app.include_router(ai_router)
 app.include_router(app_router)
 app.include_router(catalog_router)
 app.include_router(periods_router)
