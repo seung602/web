@@ -16,6 +16,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 .tab-btn { padding: 8px 16px; border: 1px solid #ddd; background: #fff; border-radius: 20px; font-size: 14px; cursor: pointer; }
 .tab-btn.active { background: #111; color: #fff; border-color: #111; font-weight: bold; }
 
+/* 🚨 전역 기간 스위치 */
+.global-period { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.period-label { font-size: 12px; color: #888; font-weight: bold; margin-right: 4px; }
+
 .search-wrapper { position: relative; padding: 16px; max-width: 800px; margin: 0 auto; }
 .search-input-box { display: flex; align-items: center; background: #fff; border: 2px solid #ddd; border-radius: 30px; padding: 10px 18px; }
 .search-input-box input { border: none; outline: none; flex: 1; font-size: 16px; background: transparent; }
@@ -40,19 +44,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 
 .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 
-/* ✅ 키워드 바둑판 배치 (한눈에 보기) */
 .keyword-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
 .keyword-chip { background: #fff; border: 1px solid #ddd; border-radius: 16px; padding: 9px 6px;
   font-size: 13px; text-align: center; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.05);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .keyword-chip:hover { background: #f1f3f5; }
+.other-chip { background: #f1f3f5; border-style: dashed; }
 
-/* ✅ 랭킹 필터 버튼 */
 .filter-switch { display: flex; gap: 8px; margin-bottom: 14px; }
 .filter-btn { padding: 7px 18px; border: 1px solid #ddd; border-radius: 18px; background: #fff; cursor: pointer; font-size: 13px; }
 .filter-btn.active { background: #111; color: #fff; border-color: #111; font-weight: bold; }
 
-/* ✅ 랭킹 번호 표시 */
 .rank-no { font-size: 13px; font-weight: 800; margin-bottom: 6px; }
 .rank-no.olive { color: #2e7d32; }
 .rank-no.daiso { color: #1565c0; }
@@ -73,6 +75,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 .period-switch { display: flex; gap: 8px; margin-bottom: 16px; }
 .period-btn { padding: 8px 18px; border: 1px solid #ddd; border-radius: 20px; background: #fff; cursor: pointer; }
 .period-btn.active { background: #d32f2f; color: #fff; border-color: #d32f2f; font-weight: bold; }
+
 .ai-card { background: #fff; border-radius: 12px; padding: 18px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
 .ai-card h3 { font-size: 15px; margin-bottom: 10px; color: #555; }
 .ai-summary { font-size: 15px; line-height: 1.7; white-space: pre-wrap; }
@@ -81,3 +84,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 
 .result-section { background: #fffbe8; border: 1px solid #ffe08a; border-radius: 12px; padding: 16px; margin-bottom: 24px; }
 .loading { color: #888; padding: 20px; text-align: center; }
+
+/* 🚨 데이터 부족 안내 */
+.insufficient { padding: 24px; text-align: center; color: #888; font-size: 14px;
+  background: #fff; border: 1px dashed #ddd; border-radius: 12px; grid-column: 1 / -1; }
