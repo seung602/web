@@ -1,7 +1,4 @@
-/* 화장품 전 상품 커버하는 키워드 분류 (성분 24 + 제형 22 + 조합 6 = 52개)
-   match: 문자열(하나라도 포함) / 배열(AND 조합, 예: ['세라마이드','세럼']) */
 const KEYWORDS = [
-  // ───────── 성분 ─────────
   { id:'pdrn', ko:'PDRN', en:'PDRN', ar:'PDRN', match:['pdrn','디엔에이'] },
   { id:'retinol', ko:'레티놀', en:'Retinol', ar:'ريتينول', match:['레티놀','retinol'] },
   { id:'ceramide', ko:'세라마이드', en:'Ceramide', ar:'سيراميد', match:['세라마이드','ceramide'] },
@@ -26,7 +23,6 @@ const KEYWORDS = [
   { id:'lacto', ko:'락토·유산균', en:'Lacto & Probiotics', ar:'لاكتو', match:['락토','lacto','프로바이오틱스'] },
   { id:'green', ko:'녹두·녹차', en:'Mung Bean & Green Tea', ar:'شاي أخضر', match:['녹두','녹차'] },
   { id:'allantoin', ko:'알란토인', en:'Allantoin', ar:'ألانتوين', match:['알란토인','allantoin'] },
-  // ───────── 제형/카테고리 ─────────
   { id:'toner', ko:'토너', en:'Toner', ar:'تونر', match:['토너','toner'] },
   { id:'serum', ko:'세럼·앰플', en:'Serum & Ampoule', ar:'سيروم', match:['세럼','serum','앰플','ampoule'] },
   { id:'cream', ko:'크림', en:'Cream', ar:'كريم', match:['크림','cream'] },
@@ -51,7 +47,6 @@ const KEYWORDS = [
   { id:'hand', ko:'핸드크림', en:'Hand Cream', ar:'كريم يد', match:['핸드','hand'] },
   { id:'men', ko:'맨즈·올인원', en:"Men's All-in-One", ar:'عناية رجالية', match:['올인원','all-in-one','맨즈','포맨','for men'] },
   { id:'perfume', ko:'향수', en:'Perfume', ar:'عطر', match:['향수','perfume','오드','eau de','코롱','cologne'] },
-  // ───────── 조합 키워드 (성분+제형) ─────────
   { id:'ceramide_serum', ko:'세라마이드 세럼', en:'Ceramide Serum', ar:'سيروم سيراميد', match:[['세라마이드','세럼'],['세라마이드','앰플'],['ceramide','serum'],['ceramide','ampoule']] },
   { id:'pdrn_toner', ko:'PDRN 토너', en:'PDRN Toner', ar:'تونر PDRN', match:[['pdrn','토너'],['pdrn','toner']] },
   { id:'retinol_cream', ko:'레티놀 크림', en:'Retinol Cream', ar:'كريم ريتينول', match:[['레티놀','크림'],['retinol','cream']] },
