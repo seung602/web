@@ -35,4 +35,142 @@
     </section>
 
     <div class="periodTabs">
-        <button class="periodTab active" data-period="daily"><span class="tabIcon">📅</span><span data-t="daily">일간</span>
+        <button class="periodTab active" data-period="daily"><span class="tabIcon">📅</span><span data-t="daily">일간</span></button>
+        <button class="periodTab" data-period="weekly"><span class="tabIcon"></span><span data-t="weekly">주간</span></button>
+        <button class="periodTab" data-period="monthly"><span class="tabIcon">📈</span><span data-t="monthly">월간</span></button>
+    </div>
+
+    <!-- Daily -->
+    <div id="dailyContent" class="periodContent active">
+        <section class="panel collapsible">
+            <h2 class="toggleHead"><span data-t="themeRollup">🧩 테마별 트렌드</span><span class="chev">▾</span></h2>
+            <div class="panelBody"><div id="themeGrid" class="themeGrid"></div></div>
+        </section>
+
+        <div class="grid2">
+            <section class="panel collapsible">
+                <h2 class="toggleHead"><span data-t="rising">🔥 상승 트렌드</span><span class="chev"></span></h2>
+                <div class="panelBody"><div id="trendList"></div></div>
+            </section>
+            <section class="panel collapsible">
+                <h2 class="toggleHead"><span data-t="trendMatrix"> 트렌드 점수 매트릭스</span><span class="chev">▾</span></h2>
+                <div class="panelBody"><div id="trendMatrix"></div></div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Weekly -->
+    <div id="weeklyContent" class="periodContent">
+        <section class="panel collapsible">
+            <h2 class="toggleHead"><span data-t="weeklyChanges"> 이번 주 핵심 변화</span><span class="chev">▾</span></h2>
+            <div class="panelBody"><div id="weeklyDelta" class="deltaGrid"></div></div>
+        </section>
+        <section class="panel collapsible">
+            <h2 class="toggleHead"><span data-t="weeklyTop">🏆 주간 TOP 트렌드</span><span class="chev">▾</span></h2>
+            <div class="panelBody"><div id="weeklyList"></div></div>
+        </section>
+    </div>
+
+    <!-- Monthly -->
+    <div id="monthlyContent" class="periodContent">
+        <section class="panel collapsible">
+            <h2 class="toggleHead"><span data-t="monthlyChanges">🔄 이번 달 핵심 변화</span><span class="chev">▾</span></h2>
+            <div class="panelBody"><div id="monthlyDelta" class="deltaGrid"></div></div>
+        </section>
+        <section class="panel collapsible">
+            <h2 class="toggleHead"><span data-t="monthlyTop">🏆 월간 TOP 트렌드</span><span class="chev">▾</span></h2>
+            <div class="panelBody"><div id="monthlyList"></div></div>
+        </section>
+    </div>
+</main>
+
+<!-- Page 2: Products -->
+<main id="productsPage" class="page">
+    <section class="hero">
+        <div>
+            <p class="eyebrow">PRODUCT INTELLIGENCE</p>
+            <h1 data-t="productTitle">상품 랭킹 & 전체 카탈로그</h1>
+            <p class="muted" data-t="productSub">올리브영·다이소·자체 종합점수로 상품의 시장 위치를 비교합니다.</p>
+        </div>
+        <div class="date" id="productDate"></div>
+    </section>
+
+    <div class="rankTabs">
+        <button class="rankTab active" data-kind="overall" data-t="overall">종합랭킹</button>
+        <button class="rankTab" data-kind="olive" data-t="olive">올리브영</button>
+        <button class="rankTab" data-kind="daiso" data-t="daiso">다이소</button>
+        <button class="rankTab" data-kind="change" data-t="change">▲▼ 변동</button>
+    </div>
+
+    <!-- 종합/올리브영/다이소 랭킹 -->
+    <section class="panel collapsible" id="rankPanel">
+        <div class="panelHead toggleHead">
+            <div>
+                <h2 id="rankTitle">Overall Ranking</h2>
+                <span class="muted" data-t="scoreDesc">자체 0–100 통합점수</span>
+            </div>
+            <span class="chev">▾</span>
+        </div>
+        <div class="panelBody"><div id="rankingList"></div></div>
+    </section>
+
+    <!-- 변동 탭 -->
+    <section class="panel collapsible" id="changePanel" style="display:none;">
+        <div class="panelHead toggleHead">
+            <div>
+                <h2 data-t="changeTitle">▲▼ 랭킹 변동</h2>
+                <span class="muted" data-t="changeSub">어제 대비 랭킹 변화를 확인합니다</span>
+            </div>
+            <span class="chev">▾</span>
+        </div>
+        <div class="panelBody">
+            <div class="changeGrid">
+                <div class="changeCard">
+                    <h3 class="changeNew" data-t="newEntries">🆕 신규 진입</h3>
+                    <ul class="changeList" id="changeNew"></ul>
+                </div>
+                <div class="changeCard">
+                    <h3 class="changeRise" data-t="risingRank">▲ 상승</h3>
+                    <ul class="changeList" id="changeRise"></ul>
+                </div>
+                <div class="changeCard">
+                    <h3 class="changeFall" data-t="fallingRank">▼ 하락</h3>
+                    <ul class="changeList" id="changeFall"></ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 전체 카탈로그 -->
+    <section class="panel collapsible">
+        <div class="panelHead toggleHead">
+            <div>
+                <h2 data-t="catalog">🛍️ 전체 상품 카탈로그</h2>
+                <span class="muted" data-t="catalogSub">카테고리·성분·키워드로 전체 상품을 탐색합니다.</span>
+            </div>
+            <span class="chev">▾</span>
+        </div>
+        <div class="panelBody">
+            <div class="filters">
+                <div class="searchWrap">
+                    <input id="search" data-ph="searchPh" placeholder="상품명·브랜드·성분 검색" autocomplete="off">
+                    <div id="suggestBox" class="suggestBox"></div>
+                </div>
+                <select id="category"><option value="" data-t="allCategories">전체 카테고리</option></select>
+            </div>
+            <div id="products" class="productGrid"></div>
+            <button id="loadMore" class="loadMore" data-t="loadMore">더 보기 (50)</button>
+        </div>
+    </section>
+</main>
+
+<div id="modal" class="modal">
+    <div class="modalBox">
+        <button id="close">×</button>
+        <div id="detail"></div>
+    </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
