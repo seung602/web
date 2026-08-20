@@ -31,7 +31,7 @@ const T = {
         skin_type: '피부 타입', concerns: '고민', texture: '제형',
         key_ingredients: '주요 성분', claims: '클레임',
         noData: '데이터 없음', scoreNone: '데이터 부족',
-        mallOlive: '올리브영', mallDaiso: '다이소',
+        mallOlive: '올리브영', mallDaiso: '다이소',new: '신규', platforms: '플랫폼', days: '지속일',
         trendRising: '상승세', trendFalling: '하락세', trendFlat: '보합', trendNew: '신규'
     },
     en: {
@@ -49,7 +49,7 @@ const T = {
         overall: 'Overall', olive: 'Olive Young', daiso: 'Daiso', change: '▲▼ Changes',
         scoreDesc: '(Composite score: Rank + Trend + Reviews)',
         catalog: '🛍️ Full Product Catalog', catalogSub: 'Explore products by category, ingredients and keywords.',
-        searchPh: 'Search (e.g., Retinol Serum)', allCategories: 'All categories',
+        searchPh: 'Search (e.g., Retinol Serum)', allCategories: 'All categories',new: 'New', platforms: 'Platforms', days: 'Days',
         loadMore: 'Load more (50)',
         rank: 'Rank', source: 'Channel', details: 'Product Details',
         ingredients: 'Ingredients', product_type: 'Product Type', keywords: 'Keywords',
@@ -75,7 +75,7 @@ const T = {
         scoreDesc: '(درجة مركبة: الترتيب + الاتجاه + المراجعات)',
         catalog: '🛍️ كتالوج المنتجات', catalogSub: 'استكشف المنتجات حسب الفئة والمكونات.',
         searchPh: 'ابحث (مثال: سيروم الريتينول)', allCategories: 'كل الفئات',
-        loadMore: 'عرض المزيد (50)',
+        loadMore: 'عرض المزيد (50)',new: 'جديد', platforms: 'منصات', days: 'أيام',
         rank: 'الترتيب', source: 'القناة', details: 'تفاصيل المنتج',
         ingredients: 'المكونات', product_type: 'نوع المنتج', keywords: 'كلمات مفتاحية',
         skin_type: 'نوع البشرة', concerns: 'المشاكل', texture: 'القوام',
@@ -133,21 +133,22 @@ function getTrendStatus(velocity) {
  }
 
 function renderTrends(a) {
-    $('#trendList').innerHTML = a.length ? a.map((x, i) => `
+    $('#trendList').innerHTML = a.length ? a.map((x, i) => {
+        const chips = [];
+        if (!x.has_history) chips.push(`<span class="metaChip chipNew">✨ ${tr('new')}</span>`);
+        if (x.theme && x.theme !== 'other') chips.push(`<span class="metaChip">${esc(themeT(x.theme))}</span>`);
+        chips.push(`<span class="metaChip">${tr('platforms')}: ${Math.max(1, Math.round((x.cross_platform_score || 0) / 33.3))}</span>`);
+        return `
         <div class="trendRow">
             <div class="rankNo">${i + 1}</div>
-            <div style="flex:1">
-                <div class="trendName">${esc(x.keyword)}</div>
-                <div class="trendMeta">
-                    <span class="metaChip">${esc(themeT(x.theme))}</span>
-                    ${getTrendStatus(x.velocity)}
-                    <span class="metaChip">플랫폼: ${Math.round(x.cross_platform_score / 33.3)}개</span>
-                </div>
+            <div class="rankBody">
+                <div class="rankNameLine"><span class="trendName">${esc(x.keyword)}</span> ${chips.join(' ')}</div>
+                <div class="bar"><i style="width:${Math.min(100, Number(x.trend_score) || 0)}%"></i></div>
             </div>
-            <div class="grow">${x.trend_score.toFixed(1)}</div>
-        </div>`).join('') : `<p class="muted">${tr('noData')}</p>`;
+            <div class="grow">${fmt(x.trend_score)}</div>
+        </div>`;
+    }).join('') : `<p class="muted">${tr('noData')}</p>`;
 }
-
 function renderMatrix(a) {
     $('#trendMatrix').innerHTML = a.map(x => `
         <div class="trendRow">
@@ -183,42 +184,26 @@ function renderThemes(themes) {
 // ========== Product Renders ==========
 // 기존 rankCard 함수를 이 코드로 완전 교체
 function rankCard(p, i) {
-    // i는 현재 정렬된 리스트에서의 순번 (1, 2, 3...)
-    let rankDisplay = i;
-    let subInfo = '';
-    let badges = '';
-
-    // 탭별로 표시 방식을 명확히 구분
+    let badge = '';
     if (state.kind === 'overall') {
-        rankDisplay = i; // 종합 순위
-        if (p.olive_rank === 1) badges += `<span class="badge badge-oy1">올리브영 1위</span>`;
-        else if (p.olive_rank && p.olive_rank <= 10) badges += `<span class="badge badge-oy">올리브영 ${p.olive_rank}위</span>`;
-        
-        if (p.daiso_score > 80) badges += `<span class="badge badge-daiso">다이소 강세</span>`;
-        
-        subInfo = `${esc(p.brand || '')} · ${esc(p.category || '')}`;
-    } 
-    else if (state.kind === 'olive') {
-        rankDisplay = p.olive_rank || i; // 올리브영 실제 순위 표시
-        subInfo = `${esc(p.brand || '')} · ${esc(p.category || '')}`;
-    } 
-    else if (state.kind === 'daiso') {
-        rankDisplay = i;
-        subInfo = `${esc(p.brand || '')} · ${esc(p.category || '')} · 다이소 점수: ${p.daiso_score ? p.daiso_score.toFixed(1) : '없음'}`;
+        if (p.olive_rank) badge += `<span class="metaChip">${tr('mallOlive')} #${p.olive_rank}</span>`;
+        if (p.daiso_score) badge += `<span class="metaChip">${tr('mallDaiso')} ${fmt(p.daiso_score)}</span>`;
+    } else if (state.kind === 'olive') {
+        if (p.olive_rank) badge = `<span class="metaChip">${tr('mallOlive')} #${p.olive_rank}</span>`;
+    } else if (state.kind === 'daiso') {
+        if (p.daiso_score) badge = `<span class="metaChip">${tr('mallDaiso')} ${fmt(p.daiso_score)}</span>`;
     }
 
-    // 상품명 클릭 시 링크 이동
-    const productLink = p.product_url ? `<a href="${esc(p.product_url)}" target="_blank" rel="noopener noreferrer" class="prodNameLink">${esc(p.product_name)}</a>` : esc(p.product_name);
+    const nameHtml = p.product_url
+        ? `<a href="${esc(p.product_url)}" target="_blank" rel="noopener noreferrer" class="prodNameLink">${esc(p.product_name)}</a>`
+        : `<span class="prodName">${esc(p.product_name)}</span>`;
 
     return `
     <div class="rankRow">
-        <div class="rankNo">${rankDisplay}</div>
-        <div style="flex:1">
-            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                ${productLink}
-                ${badges}
-            </div>
-            <div class="meta">${subInfo}</
+        <div class="rankNo">${i}</div>
+        <div class="rankBody">
+            <div class="rankNameLine">${nameHtml} ${badge}</div>
+            <div class="meta">${esc(p.brand || '')} · ${esc(p.category || '')}</div>
         </div>
     </div>`;
 }
