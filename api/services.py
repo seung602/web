@@ -409,20 +409,33 @@ def get_ranking_change(limit: int = 50) -> dict:
     return {"new": new_entries[:limit], "rising": rising[:limit], "falling": falling[:limit]}
 
 def get_search_suggestions(limit: int = 40) -> list:
-    """검색창 자동완성용 키워드 예시 (트렌드 상위 + 일반 뷰티 단어)."""
+    """검색창 자동완성용 키워드 예시 (실제 트렌드 상위 + 구체적 뷰티 용어)."""
     out = []
     try:
         t = get_trend_db()
         mx = t.execute('SELECT MAX(signal_date) d FROM trend_scores').fetchone()['d']
         if mx:
+            # 실제 DB에서 trending 중인 키워드를 우선적으로 가져옴
             rows = t.execute('SELECT keyword FROM trend_scores WHERE signal_date=? ORDER BY trend_score DESC LIMIT 20', (mx,)).fetchall()
             out += [r['keyword'] for r in rows]
-        t.close()
+        t.close is not None and t.close()
     except Exception:
         pass
     
-    out += ["세럼", "선림", "레티놀", "나이아신아마이드", "시카", "세라마이드", "히알루론", "콜라겐", "펩타이드", "마스크팩", "토너", "클렌징", "앰플", "크림", "미스트", "패드", "아이크림", "자외선", "미백", "주름", "모공", "트러블", "보습", "진정", "각질", "잡티", "탄력", "수분"]
+    # 실제 사용자가 검색할 법한 구체적이고 인기 있는 뷰티 용어 풀
+    real_search_terms = [
+        "레티놀 세럼", "레티날 크림", "시카 수분 크림", "히알루론산 토너",
+        "나이아신아마이드 세럼", "비타민C 세럼", "센텔라 수분 마스크",
+        "엑소좀 스킨부스터", "PDRN 연어 주사", "폴리뉴클레오타이드",
+        "세라마이드 장벽 크림", "병풀 추출물", "스피큘 토닝",
+        "아젤라산 세럼", "살리실산 각질", "판테놀 수분", "스쿠알란 오일",
+        "자외선 차단제", "선스틱", "유기자차", "무기자차",
+        "여드름 트러블", "모공 관리", "색소침착", "미백 기능성",
+        "안티에이징", "주름 개선", "탄력", "수분 공급", "장벽 강화"
+   Extent:
+    out += real_search_terms
     
+    # 중복 제거 및 정리
     seen, res = set(), []
     for k in out:
         k = str(k).strip()
