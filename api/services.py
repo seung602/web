@@ -5,6 +5,21 @@ from datetime import datetime, timedelta
 from collections import Counter
 from .database import get_catalog_db, get_trend_db, table_cols
 
+THEME_RULES = [
+    ("barrier_soothing", ["ceramide","centella","cica","panthenol","ectoin","barrier","sensitive skin","redness","rosacea","soothing"]),
+    ("sun_protection", ["sunscreen","sun stick","sunstick","spf","sun care"]),
+    ("acne_pore", ["salicylic","azelaic","acne","pore","blemish","bha","aha"]),
+    ("brightening_pigment", ["vitamin c","niacinamide","tranexamic","kojic","dark spot","hyperpigmentation","brightening","glow"]),
+    ("antiaging_regeneration", ["retinol","retinal","bakuchiol","peptide","collagen","exosome","pdrn","polynucleotide","antiaging","anti-aging","firming","reedle","spicule","volufiline"]),
+    ("hydration", ["hyaluronic","hydrat","dry skin","dehydrated","snail","propolis","squalane","urea"]),
+]
+
+def keyword_theme(keyword: str) -> str:
+    kw = (keyword or "").lower()
+    for theme, terms in THEME_RULES:
+        if any(t in kw for t in terms):
+            return theme
+    return "other"
 # ============================================================
 # Catalog helpers
 # ============================================================
@@ -134,7 +149,7 @@ def get_daily_trends(limit: int = 50) -> dict:
             item.setdefault('cross_platform_score', 0)
             item.setdefault('persistence_score', 0)
             item.setdefault('platform_normalized_score', 0)
-            item['theme'] = "other"
+            item['theme'] = keyword_theme(r['keyword'])
             item['theme_info'] = {"label": "기타", "color": "#6b7280", "icon": "📦"}
             trends.append(item)
         
@@ -165,39 +180,57 @@ def get_daily_trends(limit: int = 50) -> dict:
         except:
             pass
         return {"date": None, "trends": [], "raw_signal_count": 0, "google": []}
-
 def get_theme_rollup(days: int = 7) -> dict:
     t = get_trend_db()
     end_date = t.execute('SELECT MAX(signal_date) d FROM trend_scores').fetchone()['d']
     if not end_date:
         t.close()
         return {"themes": []}
-    
+
     start_date = (datetime.fromisoformat(end_date) - timedelta(days=days)).isoformat()
     rows = t.execute('''
-        SELECT keyword, SUM(trend_score) as total_score, 
-               COUNT(DISTINCT signal_date) as active_days, AVG(trend_score) as avg_score
-        FROM trend_scores WHERE signal_date >= ? AND signal_date <= ? GROUP BY keyword
+        SELECT keyword, SUM(trend_score) AS total_score,
+               COUNT(DISTINCT signal_date) AS active_days,
+               AVG(trend_score) AS avg_score
+        FROM trend_scores
+        WHERE signal_date >= ? AND signal_date <= ?
+        GROUP BY keyword
     ''', (start_date, end_date)).fetchall()
-    
+    t.close()
+
     themes = {}
     for r in rows:
-        theme = "other" # Simplified theme mapping for stability
-        if theme not in themes:
-            themes[theme] = {"keywords": [], "total_score": 0, "count": 0}
-        themes[theme]["keywords"].append({"keyword": r['keyword'], "score": r['total_score'], "active_days": r['active_days'], "avg_score": r['avg_score']})
-        themes[theme]["total_score"] += r['total_score']
-        themes[theme]["count"] += 1
-    
+        theme = keyword_theme(r['keyword'])
+        if theme == "other":
+            continue
+        agg = themes.setdefault(theme, {"keywords": [], "total_score": 0, "count": 0})
+        agg["keywords"].append({
+            "keyword": r['keyword'], "score": r['total_score'],
+            "active_days": r['active_days'], "avg_score": r['avg_score']
+        })
+        agg["total_score"] += r['total_score']
+        agg["count"] += 1
+
+    THEME_META = {
+        "barrier_soothing": {"icon": "🛡️", "color": "#10b981"},
+        "sun_protection": {"icon": "☀️", "color": "#f59e0b"},
+        "acne_pore": {"icon": "🔴", "color": "#ef4444"},
+        "brightening_pigment": {"icon": "✨", "color": "#fbbf24"},
+        "antiaging_regeneration": {"icon": "💎", "color": "#8b5cf6"},
+        "hydration": {"icon": "💧", "color": "#3b82f6"},
+    }
+
     result = []
     for theme, data in themes.items():
-        if theme == "other": continue
-        info = {"label": "기타", "color": "#6b7280", "icon": "📦"}
-        top_keywords = sorted(data["keywords"], key=lambda x: -x["score"])[:5]
-        result.append({"theme": theme, "label": info["label"], "icon": info["icon"], "color": info["color"], "total_score": data["total_score"], "keyword_count": data["count"], "top_keywords": top_keywords})
-    
+        meta = THEME_META.get(theme, {"icon": "📦", "color": "#6b7280"})
+        top = sorted(data["keywords"], key=lambda x: -x["score"])[:5]
+        result.append({
+            "theme": theme, "icon": meta["icon"], "color": meta["color"],
+            "total_score": data["total_score"], "keyword_count": data["count"],
+            "top_keywords": top,
+        })
+
     result.sort(key=lambda x: -x["total_score"])
-    t.close()
     return {"themes": result, "period_days": days}
 
 def get_trend_delta(period: str = "weekly") -> dict:
