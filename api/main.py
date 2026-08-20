@@ -4,18 +4,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from .services import get_trend_dashboard, ranking_rows, load_products
-from .database import get_catalog_db, table_cols
+from .database import get_catalog_db, table_cols, sync_source_databases
 
 BASE=Path(__file__).resolve().parent.parent
 STATIC=BASE/'static'
-app=FastAPI(title='K-Beauty Trend Intelligence',version='4.0.0')
+app=FastAPI(title='K-Beauty Trend Intelligence',version='5.0.0')
+@app.on_event('startup')
+def startup_sync_databases():
+    sync_source_databases()
+
 app.add_middleware(CORSMiddleware,allow_origins=['*'],allow_credentials=False,allow_methods=['*'],allow_headers=['*'])
 if STATIC.exists(): app.mount('/static',StaticFiles(directory=STATIC),name='static')
 
 @app.get('/')
 def root(): return FileResponse(STATIC/'index.html')
 @app.get('/health')
-def health(): return {'status':'healthy','version':'4.0.0'}
+def health(): return {'status':'healthy','version':'5.0.0'}
 
 @app.get('/api/dashboard')
 def dashboard(): return get_trend_dashboard()

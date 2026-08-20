@@ -72,26 +72,78 @@ def load_rank_maps(conn, latest):
     return olive,daiso
 
 def load_products(limit=None, q=None, category=None, source=None, keyword=None, offset=0):
-    c=get_catalog_db(); cols=table_cols(c,'products')
-    want=['product_id','source','brand','product_name','product_url','category','parent_category','price','sale_price','review_count','rating','daiso_score','is_new','status','ingredients','product_type','keywords','skin_type','concerns','texture','key_ingredients','claims']
-    sel=[x for x in want if x in cols]
-    where=["status='ACTIVE'"]; args=[]
-    if q:
-        qv=f'%{q}%'; fields=[x for x in ('product_name','brand','category','parent_category','ingredients','product_type','keywords','skin_type','concerns','texture','key_ingredients','claims') if x in cols]
-        where.append('('+' OR '.join(f'LOWER(COALESCE("{x}",\'\')) LIKE LOWER(?)' for x in fields)+')'); args += [qv]*len(fields)
-    if category: where.append('(category=? OR parent_category=?)'); args += [category,category]
-    if source: where.append('source=?'); args.append(source)
-    sql=f'SELECT {",".join(sel)} FROM products WHERE '+ ' AND '.join(where)
-    if limit: sql += f' LIMIT {int(limit)} OFFSET {int(offset)}'
-    rows=[dict(r) for r in c.execute(sql,args).fetchall()]
-    latest,_=_latest_catalog_date(c); olive,daiso=load_rank_maps(c,latest)
-    t=get_trend_db(); tm=_trend_scores(t); t.close()
+    c = get_catalog_db()
+    cols = table_cols(c, 'products')
+    attr_exists = c.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='product_attributes'"
+    ).fetchone() is not None
+
+    base = [
+        'p.product_id','p.source','p.brand','p.product_name','p.product_url',
+        'p.category','p.parent_category','p.price','p.sale_price','p.review_count',
+        'p.rating','p.daiso_score','p.is_new','p.status'
+    ]
+    if attr_exists:
+        base += [
+            'a.product_type','a.keywords','a.skin_type','a.concerns',
+            'a.texture','a.key_ingredients','a.claims'
+        ]
+    else:
+        for x in ('product_type','keywords','skin_type','concerns','texture','key_ingredients','claims'):
+            if x in cols:
+                base.append(f'p.{x}')
+
+    where = ["p.status='ACTIVE'"]
+    args = []
+
+    if q or keyword:
+        qv = f'%{q or keyword}%'
+        search_fields = [
+            'p.product_name','p.brand','p.category','p.parent_category'
+        ]
+        if attr_exists:
+            search_fields += [
+                'a.product_type','a.keywords','a.skin_type','a.concerns',
+                'a.texture','a.key_ingredients','a.claims'
+            ]
+        else:
+            search_fields += [
+                f'p.{x}' for x in ('product_type','keywords','skin_type','concerns','texture','key_ingredients','claims')
+                if x in cols
+            ]
+        where.append('(' + ' OR '.join(
+            f'LOWER(COALESCE({x},\'\')) LIKE LOWER(?)' for x in search_fields
+        ) + ')')
+        args += [qv] * len(search_fields)
+
+    if category:
+        where.append('(p.category=? OR p.parent_category=?)')
+        args += [category, category]
+    if source:
+        where.append('p.source=?')
+        args.append(source)
+
+    join = " LEFT JOIN product_attributes a ON a.product_id=p.product_id" if attr_exists else ""
+    sql = f"SELECT {','.join(base)} FROM products p{join} WHERE " + ' AND '.join(where)
+    if limit:
+        sql += f' LIMIT {int(limit)} OFFSET {int(offset)}'
+
+    rows = [dict(r) for r in c.execute(sql, args).fetchall()]
+    latest, _ = _latest_catalog_date(c)
+    olive, daiso = load_rank_maps(c, latest)
+
+    t = get_trend_db()
+    tm = _trend_scores(t)
+    t.close()
+
     for p in rows:
-        p['olive_rank']=olive.get(p['product_id']); p['daiso_rank']=daiso.get(p['product_id'])
-        p['overall_score']=product_score(p,tm,p['olive_rank'],p.get('daiso_score'))
-        p['keyword_list']=_list_field(p.get('keywords'))
-        p['ingredient_list']=_list_field(p.get('key_ingredients') or p.get('ingredients'))
-    c.close(); return rows,latest
+        p['olive_rank'] = olive.get(p['product_id'])
+        p['daiso_rank'] = daiso.get(p['product_id'])
+        p['overall_score'] = product_score(p, tm, p['olive_rank'], p.get('daiso_score'))
+        p['keyword_list'] = _list_field(p.get('keywords'))
+        p['ingredient_list'] = _list_field(p.get('key_ingredients'))
+    c.close()
+    return rows, latest
 
 def get_trend_dashboard():
     c=get_catalog_db(); latest,_=_latest_catalog_date(c); c.close()
@@ -112,17 +164,50 @@ def get_trend_dashboard():
     t.close()
     return {'latest_catalog':latest,'trends':trend_rows,'google':google,'raw_signal_count':raw_count,'top_keywords':[{'keyword':k,'score':v} for k,v in list(tm.items())[:20]]}
 
-def ranking_rows(kind='overall',limit=50):
-    c=get_catalog_db(); latest,_=_latest_catalog_date(c); olive,daiso=load_rank_maps(c,latest); cols=table_cols(c,'products')
-    want=['product_id','source','brand','product_name','product_url','category','parent_category','price','sale_price','review_count','rating','daiso_score','is_new']
-    sel=[x for x in want if x in cols]
-    rows=[dict(r) for r in c.execute(f"SELECT {','.join(sel)} FROM products WHERE status='ACTIVE'").fetchall()]
-    c.close(); t=get_trend_db(); tm=_trend_scores(t); t.close()
+def ranking_rows(kind='overall', limit=50):
+    c = get_catalog_db()
+    latest, _ = _latest_catalog_date(c)
+    olive, daiso = load_rank_maps(c, latest)
+    cols = table_cols(c, 'products')
+    attr_exists = c.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='product_attributes'"
+    ).fetchone() is not None
+
+    fields = [
+        'p.product_id','p.source','p.brand','p.product_name','p.product_url',
+        'p.category','p.parent_category','p.price','p.sale_price',
+        'p.review_count','p.rating','p.daiso_score','p.is_new'
+    ]
+    if attr_exists:
+        fields += ['a.product_type','a.keywords','a.skin_type','a.concerns','a.texture','a.key_ingredients','a.claims']
+
+    join = " LEFT JOIN product_attributes a ON a.product_id=p.product_id" if attr_exists else ""
+    rows = [dict(r) for r in c.execute(
+        f"SELECT {','.join(fields)} FROM products p{join} WHERE p.status='ACTIVE'"
+    ).fetchall()]
+    c.close()
+
+    t = get_trend_db()
+    tm = _trend_scores(t)
+    t.close()
+
     for p in rows:
-        p['olive_rank']=olive.get(p['product_id']); p['daiso_rank']=daiso.get(p['product_id'])
-        p['overall_score']=product_score(p,tm,p['olive_rank'],p.get('daiso_score'))
-    if kind=='olive': rows=[p for p in rows if p['olive_rank']]; rows.sort(key=lambda x:x['olive_rank'])
-    elif kind=='daiso': rows=[p for p in rows if p.get('daiso_score')]; rows.sort(key=lambda x:float(x.get('daiso_score') or 0),reverse=True)
-    else: rows.sort(key=lambda x:x['overall_score'],reverse=True)
-    for i,p in enumerate(rows[:limit],1): p['display_rank']=i
-    return rows[:limit],latest
+        p['olive_rank'] = olive.get(p['product_id'])
+        p['daiso_rank'] = daiso.get(p['product_id'])
+        p['overall_score'] = product_score(p, tm, p['olive_rank'], p.get('daiso_score'))
+        p['keyword_list'] = _list_field(p.get('keywords'))
+        p['ingredient_list'] = _list_field(p.get('key_ingredients'))
+
+    if kind == 'olive':
+        rows = [p for p in rows if p['olive_rank']]
+        rows.sort(key=lambda x: x['olive_rank'])
+    elif kind == 'daiso':
+        rows = [p for p in rows if p.get('daiso_score')]
+        rows.sort(key=lambda x: float(x.get('daiso_score') or 0), reverse=True)
+    else:
+        rows.sort(key=lambda x: x['overall_score'], reverse=True)
+
+    for i, p in enumerate(rows[:limit], 1):
+        p['display_rank'] = i
+    return rows[:limit], latest
+
