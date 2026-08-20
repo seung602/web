@@ -105,39 +105,66 @@ def load_rank_maps(conn, latest):
 # Trend APIs
 # ============================================================
 def get_daily_trends(limit: int = 50) -> dict:
+    """일간 트렌드 (V3 스코어 포함) — today_mentions 컬럼 없음"""
     t = get_trend_db()
-    mx = t.execute('SELECT MAX(signal_date) d FROM trend_scores').fetchone()['d']
-    if not mx:
+    try:
+        mx = t.execute('SELECT MAX(signal_date) d FROM trend_scores').fetchone()
+        if not mx or not mx['d']:
+            t.close()
+            return {"date": None, "trends": [], "raw_signal_count": 0, "google": []}
+        
+        max_date = mx['d']
+        
+        # ✅ 수정: today_mentions 제거, 실제 존재하는 컬럼만 SELECT
+        rows = t.execute('''
+            SELECT keyword, trend_score, volume_score, velocity_score,
+                   persistence_score, cross_platform_score, regional_score,
+                   platform_normalized_score
+            FROM trend_scores 
+            WHERE signal_date=? 
+            ORDER BY trend_score DESC 
+            LIMIT ?
+        ''', (max_date, limit)).fetchall()
+        
+        trends = []
+        for r in rows:
+            item = dict(r)
+            # 기본값 채우기
+            item.setdefault('velocity_score', 0)
+            item.setdefault('cross_platform_score', 0)
+            item.setdefault('persistence_score', 0)
+            item.setdefault('platform_normalized_score', 0)
+            item['theme'] = "other"
+            item['theme_info'] = {"label": "기타", "color": "#6b7280", "icon": "📦"}
+            trends.append(item)
+        
+        raw_count = 0
+        tables = [r[0] for r in t.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+        if 'raw_signals' in tables:
+            raw_count = t.execute('SELECT COUNT(*) c FROM raw_signals').fetchone()['c']
+        
+        google = []
+        if 'google_signals' in tables:
+            gmx = t.execute('SELECT MAX(signal_date) d FROM google_signals').fetchone()
+            if gmx and gmx['d']:
+                google = [dict(r) for r in t.execute('''
+                    SELECT keyword, region, intent, interest_score, 
+                           rising_score, source 
+                    FROM google_signals 
+                    WHERE signal_date=? 
+                    ORDER BY rising_score DESC, interest_score DESC 
+                    LIMIT 20
+                ''', (gmx['d'],)).fetchall()]
+        
         t.close()
+        return {"date": max_date, "trends": trends, "raw_signal_count": raw_count, "google": google}
+    except Exception as e:
+        print(f"[Trend API Error] {e}")
+        try:
+            t.close()
+        except:
+            pass
         return {"date": None, "trends": [], "raw_signal_count": 0, "google": []}
-    
-    rows = t.execute('''SELECT keyword, trend_score, volume_score, velocity_score,
-                        persistence_score, cross_platform_score, regional_score,
-                        platform_normalized_score, today_mentions
-                        FROM trend_scores WHERE signal_date=? ORDER BY trend_score DESC LIMIT ?''', (mx, limit)).fetchall()
-    
-    trends = []
-    for r in rows:
-        item = dict(r)
-        item['lifecycle_info'] = {"label": "Unknown", "color": "#6b7280", "icon": "❓"}
-        item['theme'] = "other"
-        item['theme_info'] = {"label": "기타", "color": "#6b7280", "icon": "📦"}
-        trends.append(item)
-    
-    raw_count = 0
-    if 'raw_signals' in [r[0] for r in t.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]:
-        raw_count = t.execute('SELECT COUNT(*) c FROM raw_signals').fetchone()['c']
-    
-    google = []
-    if 'google_signals' in [r[0] for r in t.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]:
-        gmx = t.execute('SELECT MAX(signal_date) d FROM google_signals').fetchone()['d']
-        if gmx:
-            google = [dict(r) for r in t.execute('''SELECT keyword, region, intent, interest_score, 
-                           rising_score, source FROM google_signals 
-                           WHERE signal_date=? ORDER BY rising_score DESC, interest_score DESC LIMIT 20''', (gmx,)).fetchall()]
-    
-    t.close()
-    return {"date": mx, "trends": trends, "raw_signal_count": raw_count, "google": google}
 
 def get_theme_rollup(days: int = 7) -> dict:
     t = get_trend_db()
