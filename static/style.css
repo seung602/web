@@ -212,3 +212,6 @@ nav { display: flex; gap: 8px; flex: 1; }
 #products {
     margin-top: 16px;
 }
+.rankBody { flex: 1; min-width: 0; }
+.rankNameLine { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.chipNew { color: var(--warning); border-color: var(--warning); }
