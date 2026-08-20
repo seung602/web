@@ -77,7 +77,7 @@ nav {
     flex: 1;
 }
 
-.nav, .langs button, .rankTab {
+.nav, .langs button, .rankTab, .periodTab {
     border: none;
     background: transparent;
     padding: 10px 16px;
@@ -89,12 +89,12 @@ nav {
     transition: all 0.2s ease;
 }
 
-.nav:hover, .langs button:hover, .rankTab:hover {
+.nav:hover, .langs button:hover, .rankTab:hover, .periodTab:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
 }
 
-.nav.active, .rankTab.active {
+.nav.active, .rankTab.active, .periodTab.active {
     background: var(--accent);
     color: white;
     box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
@@ -134,7 +134,7 @@ nav {
     justify-content: space-between;
     gap: 24px;
     align-items: flex-end;
-    margin-bottom: 32px;
+    margin-bottom: 24px;
     padding: 32px;
     background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
     border-radius: var(--radius-xl);
@@ -171,6 +171,37 @@ nav {
     border-radius: 999px;
     padding: 8px 16px;
     white-space: nowrap;
+}
+
+/* ========== PERIOD TABS ========== */
+.periodTabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    padding: 4px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    width: fit-content;
+}
+
+.periodTab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px !important;
+}
+
+.tabIcon {
+    font-size: 16px;
+}
+
+.periodContent {
+    display: none;
+}
+
+.periodContent.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
 }
 
 /* ========== STATS ========== */
@@ -236,6 +267,75 @@ nav {
     gap: 8px;
 }
 
+/* ========== THEME GRID ========== */
+.themeGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.themeCard {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.themeCard:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.themeHeader {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.themeIcon {
+    font-size: 24px;
+}
+
+.themeName {
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.themeScore {
+    font-size: 24px;
+    font-weight: 800;
+    margin: 8px 0;
+}
+
+.themeKeywords {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 12px;
+}
+
+.themeKeywords .chip {
+    font-size: 10px;
+    padding: 3px 6px;
+}
+
+/* ========== LIFECYCLE BADGE ========== */
+.lifecycleBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
 /* ========== TREND ROWS ========== */
 .trendRow, .googleRow, .rankRow {
     display: flex;
@@ -297,6 +397,64 @@ nav {
     background: linear-gradient(90deg, var(--accent) 0%, #6366f1 100%);
     border-radius: 99px;
     transition: width 0.5s ease;
+}
+
+.trendMeta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+}
+
+.metaChip {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+}
+
+/* ========== DELTA GRID ========== */
+.deltaGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.deltaCard {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 16px;
+}
+
+.deltaCard h3 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.deltaCard h3.new { color: var(--success); }
+.deltaCard h3.rising { color: #3b82f6; }
+.deltaCard h3.cooling { color: var(--danger); }
+
+.deltaList {
+    list-style: none;
+    padding: 0;
+}
+
+.deltaList li {
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+}
+
+.deltaList li:last-child {
+    border-bottom: none;
 }
 
 /* ========== RANK TABS ========== */
@@ -536,6 +694,9 @@ nav {
 
 /* ========== RESPONSIVE ========== */
 @media (max-width: 1024px) {
+    .themeGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
     .productGrid {
         grid-template-columns: repeat(3, 1fr);
     }
@@ -547,7 +708,11 @@ nav {
         gap: 12px;
     }
     
-    .grid2 {
+    .grid2, .deltaGrid {
+        grid-template-columns: 1fr;
+    }
+    
+    .themeGrid {
         grid-template-columns: 1fr;
     }
     
@@ -592,6 +757,15 @@ nav {
     
     .page {
         padding: 24px 16px;
+    }
+    
+    .periodTabs {
+        width: 100%;
+    }
+    
+    .periodTab {
+        flex: 1;
+        justify-content: center;
     }
 }
 
