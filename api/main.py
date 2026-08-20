@@ -5,8 +5,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from .services import (
     get_trend_dashboard, ranking_rows, load_products,
-    get_daily_trends, get_weekly_trends, get_monthly_trends,
-    get_theme_rollup, get_trend_delta
+    get_ranking_change, get_search_suggestions
 )
 from .database import get_catalog_db, table_cols, sync_source_databases
 
@@ -39,35 +38,7 @@ def health():
     return {'status': 'healthy', 'version': '6.0.0'}
 
 # ============================================================
-# Trend APIs (V3)
-# ============================================================
-@app.get('/api/trends/daily')
-def trends_daily(limit: int = Query(50, ge=1, le=200)):
-    """일간 트렌드 (V3 스코어)"""
-    return get_daily_trends(limit)
-
-@app.get('/api/trends/weekly')
-def trends_weekly(limit: int = Query(25, ge=1, le=100)):
-    """주간 트렌드 (7일 집계)"""
-    return get_weekly_trends(limit)
-
-@app.get('/api/trends/monthly')
-def trends_monthly(limit: int = Query(30, ge=1, le=100)):
-    """월간 트렌드 (30일 집계)"""
-    return get_monthly_trends(limit)
-
-@app.get('/api/trends/themes')
-def trends_themes(days: int = Query(7, ge=1, le=30)):
-    """테마 롤업"""
-    return get_theme_rollup(days)
-
-@app.get('/api/trends/delta')
-def trends_delta(period: str = Query("weekly")):
-    """주간/월간 델타"""
-    return get_trend_delta(period)
-
-# ============================================================
-# Legacy APIs (호환성)
+# Trend APIs
 # ============================================================
 @app.get('/api/dashboard')
 def dashboard():
@@ -84,13 +55,21 @@ def google(limit: int = Query(50, ge=1, le=500)):
     return {'items': d['google'][:limit]}
 
 # ============================================================
-# Product APIs
+# Ranking APIs
 # ============================================================
 @app.get('/api/rankings')
 def rankings(kind: str = Query('overall'), limit: int = Query(50, ge=1, le=500)):
     items, date = ranking_rows(kind, limit)
     return {'kind': kind, 'latest_date': date, 'items': items}
 
+@app.get('/api/rankings/change')
+def rankings_change(limit: int = Query(50, ge=1, le=200)):
+    """랭킹 변동 데이터 (신규/상승/하락)"""
+    return get_ranking_change(limit=limit)
+
+# ============================================================
+# Product APIs
+# ============================================================
 @app.get('/api/products')
 def products(q: str | None = None, category: str | None = None,
              source: str | None = None, keyword: str | None = None,
@@ -124,3 +103,10 @@ def categories():
     rows = c.execute("SELECT COALESCE(parent_category, category, 'Other') category, COUNT(*) count FROM products WHERE status='ACTIVE' GROUP BY 1 ORDER BY count DESC").fetchall()
     c.close()
     return {'items': [dict(r) for r in rows]}
+
+# ============================================================
+# Search Suggestions
+# ============================================================
+@app.get('/api/suggestions')
+def suggestions(limit: int = Query(40, ge=1, le=100)):
+    return {'items': get_search_suggestions(limit)}
