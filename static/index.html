@@ -1,172 +1,38 @@
 <!doctype html>
 <html lang="ko">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>K-Beauty Intelligence</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>K-Beauty Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <header>
-        <div class="brand">K-BEAUTY <span>INTELLIGENCE</span></div>
-        <nav>
-            <button class="nav active" data-page="trend" data-t="navTrend">Trend Intelligence</button>
-            <button class="nav" data-page="products" data-t="navProducts">Product Intelligence</button>
-        </nav>
-        <div class="langs">
-            <button data-lang="ko">한국어</button>
-            <button data-lang="en">EN</button>
-            <button data-lang="ar">العربية</button>
-        </div>
-    </header>
-
-    <!-- Page 1: Trend Intelligence -->
-    <main id="trendPage" class="page active">
-        <section class="hero">
-            <div>
-                <p class="eyebrow" data-t="eyebrow">K-BEAUTY MARKET SIGNALS</p>
-                <h1 data-t="trendTitle">오늘의 K-Beauty 트렌드</h1>
-                <p class="muted" data-t="trendSub">검색·소셜·지역 신호를 기반으로 시장의 흐름을 봅니다.</p>
-            </div>
-            <div id="catalogDate" class="date"></div>
-        </section>
-
-        <!-- Period Tabs: Daily / Weekly / Monthly -->
-        <div class="periodTabs">
-            <button class="periodTab active" data-period="daily">
-                <span class="tabIcon">📅</span>
-                <span data-t="daily">일간</span>
-            </button>
-            <button class="periodTab" data-period="weekly">
-                <span class="tabIcon">📊</span>
-                <span data-t="weekly">주간</span>
-            </button>
-            <button class="periodTab" data-period="monthly">
-                <span class="tabIcon">📈</span>
-                <span data-t="monthly">월간</span>
-            </button>
-        </div>
-
-        <!-- Daily Tab Content -->
-        <div id="dailyContent" class="periodContent active">
-            <section class="stats">
-                <div>
-                    <b id="trendCount">-</b>
-                    <span data-t="signals">Raw Signals</span>
-                </div>
-                <div>
-                    <b id="topTrend">-</b>
-                    <span data-t="topTrendLabel">Top Trend</span>
-                </div>
-                <div>
-                    <b id="googleCount">-</b>
-                    <span data-t="googleSignals">Google Signals</span>
-                </div>
-            </section>
-
-            <!-- Theme Rollup Section -->
-            <section class="panel">
-                <h2 data-t="themeRollup">🧩 테마별 트렌드</h2>
-                <div id="themeGrid" class="themeGrid"></div>
-            </section>
-
-            <div class="grid2">
-                <section class="panel">
-                    <h2 data-t="rising">🔥 Rising Trends</h2>
-                    <div id="trendList"></div>
-                </section>
-                <section class="panel">
-                    <h2 data-t="google">🔎 Google Search Signals</h2>
-                    <div id="googleList"></div>
-                </section>
-            </div>
-
-            <section class="panel">
-                <h2 data-t="trendMatrix">📈 Trend Score Matrix</h2>
-                <div id="trendMatrix"></div>
-            </section>
-        </div>
-
-        <!-- Weekly Tab Content -->
-        <div id="weeklyContent" class="periodContent">
-            <section class="panel">
-                <h2>🔄 이번 주 핵심 변화</h2>
-                <div id="weeklyDelta" class="deltaGrid"></div>
-            </section>
-            <section class="panel">
-                <h2>🏆 주간 TOP 트렌드</h2>
-                <div id="weeklyList"></div>
-            </section>
-        </div>
-
-        <!-- Monthly Tab Content -->
-        <div id="monthlyContent" class="periodContent">
-            <section class="panel">
-                <h2>🔄 이번 달 핵심 변화</h2>
-                <div id="monthlyDelta" class="deltaGrid"></div>
-            </section>
-            <section class="panel">
-                <h2>🏆 월간 TOP 트렌드</h2>
-                <div id="monthlyList"></div>
-            </section>
-        </div>
-    </main>
-
-    <!-- Page 2: Product Intelligence -->
-    <main id="productsPage" class="page">
-        <section class="hero">
-            <div>
-                <p class="eyebrow">PRODUCT INTELLIGENCE</p>
-                <h1 data-t="productTitle">상품 랭킹 & 전체 카탈로그</h1>
-                <p class="muted" data-t="productSub">올리브영·다이소·자체 종합점수로 상품의 시장 위치를 비교합니다.</p>
-            </div>
-            <div class="date" id="productDate"></div>
-        </section>
-
-        <div class="rankTabs">
-            <button class="rankTab active" data-kind="overall" data-t="overall">종합랭킹</button>
-            <button class="rankTab" data-kind="olive" data-t="olive">올리브영</button>
-            <button class="rankTab" data-kind="daiso" data-t="daiso">다이소</button>
-        </div>
-
-        <section class="panel">
-            <div class="panelHead">
-                <div>
-                    <h2 id="rankTitle">Overall Ranking</h2>
-                    <span class="muted" data-t="scoreDesc">자체 0–100 통합점수</span>
-                </div>
-            </div>
-            <div id="rankingList"></div>
-        </section>
-
-        <section class="panel">
-            <div class="panelHead">
-                <div>
-                    <h2 data-t="catalog">🛍️ Full Product Catalog</h2>
-                    <span class="muted" data-t="catalogSub">카테고리·성분·키워드로 전체 상품을 탐색합니다.</span>
-                </div>
-            </div>
-            <div class="filters">
-                <input id="search" data-ph="searchPh" placeholder="상품명·브랜드·성분 검색">
-                <select id="category">
-                    <option value="" data-t="allCategories">전체 카테고리</option>
-                </select>
-            </div>
-            <div id="products" class="productGrid"></div>
-            <button id="loadMore" class="loadMore" data-t="loadMore">더 보기</button>
-        </section>
-    </main>
-
-    <div id="modal" class="modal">
-        <div class="modalBox">
-            <button id="close">×</button>
-            <div id="detail"></div>
-        </div>
+<header>
+    <div class="brand">K-BEAUTY <span>INTELLIGENCE</span></div>
+    <nav>
+        <button class="nav active" data-page="trend" data-t="navTrend">트렌드</button>
+        <button class="nav" data-page="products" data-t="navProducts">상품</button>
+    </nav>
+    <div class="langs">
+        <button data-lang="ko">한국어</button>
+        <button data-lang="en">EN</button>
+        <button data-lang="ar">العربية</button>
     </div>
+</header>
 
-    <script src="/static/app.js"></script>
-</body>
-</html>
+<!-- Page 1: Trend -->
+<main id="trendPage" class="page active">
+    <section class="hero">
+        <div>
+            <p class="eyebrow" data-t="eyebrow">K-BEAUTY MARKET SIGNALS</p>
+            <h1 data-t="trendTitle">오늘의 K-Beauty 트렌드</h1>
+            <p class="muted" data-t="trendSub">검색·소셜·지역 신호를 기반으로 시장의 흐름을 봅니다.</p>
+        </div>
+        <div id="catalogDate" class="date"></div>
+    </section>
+
+    <div class="periodTabs">
+        <button class="periodTab active" data-period="daily"><span class="tabIcon">📅</span><span data-t="daily">일간</span>
