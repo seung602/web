@@ -418,7 +418,7 @@ def get_search_suggestions(limit: int = 40) -> list:
             # 실제 DB에서 trending 중인 키워드를 우선적으로 가져옴
             rows = t.execute('SELECT keyword FROM trend_scores WHERE signal_date=? ORDER BY trend_score DESC LIMIT 20', (mx,)).fetchall()
             out += [r['keyword'] for r in rows]
-        t.close is not None and t.close()
+        t.close()
     except Exception:
         pass
     
@@ -432,7 +432,7 @@ def get_search_suggestions(limit: int = 40) -> list:
         "자외선 차단제", "선스틱", "유기자차", "무기자차",
         "여드름 트러블", "모공 관리", "색소침착", "미백 기능성",
         "안티에이징", "주름 개선", "탄력", "수분 공급", "장벽 강화"
-   Extent:
+    ]
     out += real_search_terms
     
     # 중복 제거 및 정리
