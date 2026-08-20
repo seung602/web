@@ -181,17 +181,45 @@ function renderThemes(themes) {
 }
 
 // ========== Product Renders ==========
+// 기존 rankCard 함수를 이 코드로 완전 교체
 function rankCard(p, i) {
-    const score = state.kind === 'overall' ? p.overall_score : state.kind === 'olive' ? p.olive_rank : p.daiso_score;
-    const right = state.kind === 'olive' ? (score ? `# ${score}` : '—') : (Number(score) > 0 ? score.toFixed(1) : `<span class="noData">—</span>`);
+    // i는 현재 정렬된 리스트에서의 순번 (1, 2, 3...)
+    let rankDisplay = i;
+    let subInfo = '';
+    let badges = '';
+
+    // 탭별로 표시 방식을 명확히 구분
+    if (state.kind === 'overall') {
+        rankDisplay = i; // 종합 순위
+        if (p.olive_rank === 1) badges += `<span class="badge badge-oy1">올리브영 1위</span>`;
+        else if (p.olive_rank && p.olive_rank <= 10) badges += `<span class="badge badge-oy">올리브영 ${p.olive_rank}위</span>`;
+        
+        if (p.daiso_score > 80) badges += `<span class="badge badge-daiso">다이소 강세</span>`;
+        
+        subInfo = `${esc(p.brand || '')} · ${esc(p.category || '')}`;
+    } 
+    else if (state.kind === 'olive') {
+        rankDisplay = p.olive_rank || i; // 올리브영 실제 순위 표시
+        subInfo = `${esc(p.brand || '')} · ${esc(p.category || '')}`;
+    } 
+    else if (state.kind === 'daiso') {
+        rankDisplay = i;
+        subInfo = `${esc(p.brand || '')} · ${esc(p.category || '')} · 다이소 점수: ${p.daiso_score ? p.daiso_score.toFixed(1) : '없음'}`;
+    }
+
+    // 상품명 클릭 시 링크 이동
+    const productLink = p.product_url ? `<a href="${esc(p.product_url)}" target="_blank" rel="noopener noreferrer" class="prodNameLink">${esc(p.product_name)}</a>` : esc(p.product_name);
+
     return `
     <div class="rankRow">
-        <div class="rankNo">${i}</div>
+        <div class="rankNo">${rankDisplay}</div>
         <div style="flex:1">
-            <a href="${esc(p.product_url)}" target="_blank" rel="noopener noreferrer" class="prodNameLink">${esc(p.product_name)}</a>
-            <div class="meta">${esc(p.brand || '')} · ${esc(p.category || '')}</div>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                ${productLink}
+                ${badges}
+            </div>
+            <div class="meta">${subInfo}</
         </div>
-        <div class="grow">${right}</div>
     </div>`;
 }
 
