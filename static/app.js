@@ -2,168 +2,110 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 
 const state = {
-    lang: 'ko',
-    kind: 'overall',
-    page: 0,
-    q: '',
-    category: '',
-    products: [],
-    currentPeriod: 'daily'
+    lang: 'ko', kind: 'overall', page: 0, q: '', category: '',
+    products: [], currentPeriod: 'daily', hasMore: false,
+    initialLoad: 80, loadMoreStep: 50
 };
+let SUGGESTIONS = [];
 
 const T = {
     ko: {
-        navTrend: '트렌드 인텔리전스',
-        navProducts: '상품 인텔리전스',
-        eyebrow: 'K-BEAUTY MARKET SIGNALS',
-        trendTitle: '오늘의 K-Beauty 트렌드',
+        navTrend: '트렌드', navProducts: '상품',
+        eyebrow: 'K-BEAUTY MARKET SIGNALS', trendTitle: '오늘의 K-Beauty 트렌드',
         trendSub: '검색·소셜·지역 신호를 기반으로 시장의 흐름을 봅니다.',
-        signals: 'Raw Signals',
-        topTrendLabel: 'Top Trend',
-        googleSignals: 'Google Signals',
-        rising: '🔥 Rising Trends',
-        google: '🔎 Google Search Signals',
-        trendMatrix: '📈 Trend Score Matrix',
-        themeRollup: '🧩 테마별 트렌드',
-        daily: '일간',
-        weekly: '주간',
-        monthly: '월간',
+        rising: '🔥 상승 트렌드', trendMatrix: '📈 트렌드 점수 매트릭스',
+        themeRollup: ' 테마별 트렌드', daily: '일간', weekly: '주간', monthly: '월간',
+        weeklyChanges: '🔄 이번 주 핵심 변화', weeklyTop: '🏆 주간 TOP 트렌드',
+        monthlyChanges: '🔄 이번 달 핵심 변화', monthlyTop: '🏆 월간 TOP 트렌드',
+        newEntries: ' 신규 진입', risingRank: '▲ 상승', fallingRank: '▼ 하락',
+        changeTitle: '▲▼ 랭킹 변동', changeSub: '어제 대비 랭킹 변화를 확인합니다',
         productTitle: '상품 랭킹 & 전체 카탈로그',
         productSub: '올리브영·다이소·자체 종합점수로 상품의 시장 위치를 비교합니다.',
-        overall: '종합랭킹',
-        olive: '올리브영',
-        daiso: '다이소',
+        overall: '종합랭킹', olive: '올리브영', daiso: '다이소', change: '▲▼ 변동',
         scoreDesc: '자체 0–100 통합점수',
-        catalog: '🛍️ Full Product Catalog',
-        catalogSub: '카테고리·성분·키워드로 전체 상품을 탐색합니다.',
-        searchPh: '상품명·브랜드·성분 검색',
-        allCategories: '전체 카테고리',
-        loadMore: '더 보기',
-        score: '점수',
-        rank: '랭크',
-        source: '채널',
-        details: '상품 상세',
-        ingredients: 'Ingredients',
-        product_type: 'Product Type',
-        keywords: 'Keywords',
-        skin_type: 'Skin Type',
-        concerns: 'Concerns',
-        texture: 'Texture',
-        key_ingredients: 'Key Ingredients',
-        claims: 'Claims',
-        noData: '데이터 없음',
-        newEntries: '신규 진입',
-        risingTrends: '급상승',
-        coolingTrends: '냉각/이탈'
+        catalog: '🛍️ 전체 상품 카탈로그', catalogSub: '카테고리·성분·키워드로 전체 상품을 탐색합니다.',
+        searchPh: '상품명·브랜드·성분 검색', allCategories: '전체 카테고리',
+        loadMore: '더 보기 (50)',
+        score: '점수', rank: '랭크', source: '채널', details: '상품 상세',
+        ingredients: '성분', product_type: '제품 유형', keywords: '키워드',
+        skin_type: '피부 타입', concerns: '고민', texture: '제형',
+        key_ingredients: '주요 성분', claims: '클레임',
+        noData: '데이터 없음', scoreNone: '데이터 부족',
+        mallOlive: '올리브영', mallDaiso: '다이소'
     },
     en: {
-        navTrend: 'Trend Intelligence',
-        navProducts: 'Product Intelligence',
-        eyebrow: 'K-BEAUTY MARKET SIGNALS',
-        trendTitle: "Today's K-Beauty Trends",
+        navTrend: 'Trends', navProducts: 'Products',
+        eyebrow: 'K-BEAUTY MARKET SIGNALS', trendTitle: "Today's K-Beauty Trends",
         trendSub: 'Read market flow from search, social and regional signals.',
-        signals: 'Raw Signals',
-        topTrendLabel: 'Top Trend',
-        googleSignals: 'Google Signals',
-        rising: '🔥 Rising Trends',
-        google: '🔎 Google Search Signals',
-        trendMatrix: '📈 Trend Score Matrix',
-        themeRollup: '🧩 Theme Rollup',
-        daily: 'Daily',
-        weekly: 'Weekly',
-        monthly: 'Monthly',
+        rising: '🔥 Rising Trends', trendMatrix: '📈 Trend Score Matrix',
+        themeRollup: '🧩 Theme Rollup', daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly',
+        weeklyChanges: '🔄 Key Changes This Week', weeklyTop: '🏆 Weekly TOP Trends',
+        monthlyChanges: '🔄 Key Changes This Month', monthlyTop: '🏆 Monthly TOP Trends',
+        newEntries: ' New Entries', risingRank: '▲ Rising', fallingRank: '▼ Falling',
+        changeTitle: '▲▼ Rank Changes', changeSub: 'Compare with yesterday\'s ranking',
         productTitle: 'Product Rankings & Full Catalog',
         productSub: 'Compare market position using Olive Young, Daiso and a unified score.',
-        overall: 'Overall Ranking',
-        olive: 'Olive Young',
-        daiso: 'Daiso',
+        overall: 'Overall', olive: 'Olive Young', daiso: 'Daiso', change: '▲▼ Changes',
         scoreDesc: 'Unified 0–100 score',
-        catalog: '🛍️ Full Product Catalog',
-        catalogSub: 'Explore products by category, ingredients and keywords.',
-        searchPh: 'Search product, brand or ingredient',
-        allCategories: 'All categories',
-        loadMore: 'Load more',
-        score: 'Score',
-        rank: 'Rank',
-        source: 'Channel',
-        details: 'Product Details',
-        ingredients: 'Ingredients',
-        product_type: 'Product Type',
-        keywords: 'Keywords',
-        skin_type: 'Skin Type',
-        concerns: 'Concerns',
-        texture: 'Texture',
-        key_ingredients: 'Key Ingredients',
-        claims: 'Claims',
-        noData: 'No data',
-        newEntries: 'New Entries',
-        risingTrends: 'Rising',
-        coolingTrends: 'Cooling'
+        catalog: '🛍️ Full Product Catalog', catalogSub: 'Explore products by category, ingredients and keywords.',
+        searchPh: 'Search product, brand or ingredient', allCategories: 'All categories',
+        loadMore: 'Load more (50)',
+        score: 'Score', rank: 'Rank', source: 'Channel', details: 'Product Details',
+        ingredients: 'Ingredients', product_type: 'Product Type', keywords: 'Keywords',
+        skin_type: 'Skin Type', concerns: 'Concerns', texture: 'Texture',
+        key_ingredients: 'Key Ingredients', claims: 'Claims',
+        noData: 'No data', scoreNone: 'Not enough data',
+        mallOlive: 'Olive Young', mallDaiso: 'Daiso'
     },
     ar: {
-        navTrend: 'ذكاء الاتجاهات',
-        navProducts: 'ذكاء المنتجات',
-        eyebrow: 'إشارات سوق K-BEAUTY',
-        trendTitle: 'اتجاهات K-Beauty اليوم',
+        navTrend: 'الاتجاهات', navProducts: 'المنتجات',
+        eyebrow: 'إشارات سوق K-BEAUTY', trendTitle: 'اتجاهات K-Beauty اليوم',
         trendSub: 'اقرأ حركة السوق من إشارات البحث والتواصل والمناطق.',
-        signals: 'الإشارات الخام',
-        topTrendLabel: 'أبرز اتجاه',
-        googleSignals: 'إشارات Google',
-        rising: '🔥 الاتجاهات الصاعدة',
-        google: '🔎 إشارات بحث Google',
-        trendMatrix: '📈 مصفوفة درجات الاتجاه',
-        themeRollup: '🧩 ملخص الثيمات',
-        daily: 'يومي',
-        weekly: 'أسبوعي',
-        monthly: 'شهري',
+        rising: '🔥 الاتجاهات الصاعدة', trendMatrix: '📈 مصفوفة الدرجات',
+        themeRollup: '🧩 ملخص الثيمات', daily: 'يومي', weekly: 'أسبوعي', monthly: 'شهري',
+        weeklyChanges: '🔄 أهم التغييرات هذا الأسبوع', weeklyTop: '🏆 أفضل اتجاهات الأسبوع',
+        monthlyChanges: ' أهم التغييرات هذا الشهر', monthlyTop: '🏆 أفضل اتجاهات الشهر',
+        newEntries: '🆕 جديد', risingRank: '▲ صاعد', fallingRank: '▼ هابط',
+        changeTitle: '▲▼ تغييرات الترتيب', changeSub: 'مقارنة مع ترتيب الأمس',
         productTitle: 'ترتيب المنتجات والكتالوج الكامل',
         productSub: 'قارن موقع المنتج باستخدام Olive Young وDaiso والدرجة الموحدة.',
-        overall: 'الترتيب العام',
-        olive: 'Olive Young',
-        daiso: 'Daiso',
-        scoreDesc: 'درجة موحدة من 0 إلى 100',
-        catalog: '🛍️ كتالوج المنتجات',
-        catalogSub: 'استكشف المنتجات حسب الفئة والمكونات والكلمات المفتاحية.',
-        searchPh: 'ابحث عن منتج أو علامة أو مكوّن',
-        allCategories: 'كل الفئات',
-        loadMore: 'عرض المزيد',
-        score: 'الدرجة',
-        rank: 'الترتيب',
-        source: 'القناة',
-        details: 'تفاصيل المنتج',
-        ingredients: 'Ingredients',
-        product_type: 'Product Type',
-        keywords: 'Keywords',
-        skin_type: 'Skin Type',
-        concerns: 'Concerns',
-        texture: 'Texture',
-        key_ingredients: 'Key Ingredients',
-        claims: 'Claims',
-        noData: 'لا توجد بيانات',
-        newEntries: 'إدخالات جديدة',
-        risingTrends: 'صاعد',
-        coolingTrends: 'يبرد'
+        overall: 'الترتيب العام', olive: 'Olive Young', daiso: 'Daiso', change: '▲▼ تغييرات',
+        scoreDesc: 'درجة موحدة 0–100',
+        catalog: '🛍️ كتالوج المنتجات', catalogSub: 'استكشف المنتجات حسب الفئة والمكونات.',
+        searchPh: 'ابحث عن منتج أو علامة أو مكوّن', allCategories: 'كل الفئات',
+        loadMore: 'عرض المزيد (50)',
+        score: 'الدرجة', rank: 'الترتيب', source: 'القناة', details: 'تفاصيل المنتج',
+        ingredients: 'المكونات', product_type: 'نوع المنتج', keywords: 'كلمات مفتاحية',
+        skin_type: 'نوع البشرة', concerns: 'المشاكل', texture: 'القوام',
+        key_ingredients: 'المكونات الرئيسية', claims: 'الادعاءات',
+        noData: 'لا توجد بيانات', scoreNone: 'بيانات غير كافية',
+        mallOlive: 'Olive Young', mallDaiso: 'Daiso'
     }
 };
 
+const THEME_T = {
+    ko: { barrier_soothing: '장벽·진정', sun_protection: '자외선 차단', acne_pore: '여드름·모공', brightening_pigment: '미백·색소', antiaging_regeneration: '안티에이징·재생', hydration: '수분·보습', other: '기타' },
+    en: { barrier_soothing: 'Barrier·Soothing', sun_protection: 'Sun Protection', acne_pore: 'Acne·Pore', brightening_pigment: 'Brightening·Pigment', antiaging_regeneration: 'Anti-aging·Regeneration', hydration: 'Hydration', other: 'Other' },
+    ar: { barrier_soothing: 'حاجز·تهدئة', sun_protection: 'حماية الشمس', acne_pore: 'حب الشباب·المسام', brightening_pigment: 'تفتيح·تصبغات', antiaging_regeneration: 'مكافحة الشيخوخة', hydration: 'ترطيب', other: 'أخرى' }
+};
+
 function tr(k) { return T[state.lang][k] || T.en[k] || k; }
-
+function themeT(key) { return (THEME_T[state.lang] || {})[key] || THEME_T.en[key] || key; }
 function esc(x) { return String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
 function arr(v) { if (!v) return []; if (Array.isArray(v)) return v; try { const x = JSON.parse(v); if (Array.isArray(x)) return x; } catch {} return String(v).split(/[,|;\n]+/).map(x => x.trim()).filter(Boolean); }
-
 async function api(u) { const r = await fetch(u); if (!r.ok) throw Error(r.status); return r.json(); }
+const fmt = x => Number(x || 0).toFixed(1);
 
 function applyLang() {
     document.documentElement.lang = state.lang;
     document.body.classList.toggle('rtl', state.lang === 'ar');
     $$('[data-t]').forEach(e => e.textContent = tr(e.dataset.t));
     $$('[data-ph]').forEach(e => e.placeholder = tr(e.dataset.ph));
+    renderAll();
 }
 
-// ========== Navigation ==========
-$$('.langs button').forEach(b => b.onclick = () => { state.lang = b.dataset.lang; applyLang(); renderAll(); });
-
+// ========== Navigation / Tabs / Toggles ==========
+$$('.langs button').forEach(b => b.onclick = () => { state.lang = b.dataset.lang; applyLang(); });
 $$('.nav').forEach(b => b.onclick = () => {
     const p = b.dataset.page;
     $$('.nav').forEach(x => x.classList.toggle('active', x === b));
@@ -171,8 +113,6 @@ $$('.nav').forEach(b => b.onclick = () => {
     $('#' + p + 'Page').classList.add('active');
     if (p === 'products' && !state.products.length) loadProducts();
 });
-
-// ========== Period Tabs (Daily/Weekly/Monthly) ==========
 $$('.periodTab').forEach(b => b.onclick = () => {
     state.currentPeriod = b.dataset.period;
     $$('.periodTab').forEach(x => x.classList.toggle('active', x === b));
@@ -180,16 +120,15 @@ $$('.periodTab').forEach(b => b.onclick = () => {
     $('#' + state.currentPeriod + 'Content').classList.add('active');
     loadPeriodData();
 });
+$$('.toggleHead').forEach(head => head.addEventListener('click', () => head.closest('.panel').classList.toggle('collapsed')));
 
-// ========== Render Functions ==========
-const fmt = x => Number(x || 0).toFixed(1);
-
+// ========== Lifecycle badge ==========
 function lifecycleBadge(info) {
-    return `<span class="lifecycleBadge" style="background:${info.color}22;color:${info.color};border:1px solid ${info.color}44">
-        ${info.icon} ${info.label}
-    </span>`;
+    if (!info) return '';
+    return `<span class="lifecycleBadge" style="background:${info.color}22;color:${info.color};border:1px solid ${info.color}44">${info.icon} ${info.label}</span>`;
 }
 
+// ========== Daily renders ==========
 function renderTrends(a) {
     $('#trendList').innerHTML = a.length ? a.map((x, i) => `
         <div class="trendRow">
@@ -197,190 +136,110 @@ function renderTrends(a) {
             <div style="flex:1">
                 <div class="trendName">${esc(x.keyword)}</div>
                 <div class="trendMeta">
-                    ${lifecycleBadge(x.lifecycle_info || {label:'Unknown',color:'#6b7280',icon:'❓'})}
-                    <span class="metaChip">${esc(x.theme_info?.label || 'Other')}</span>
+                    ${lifecycleBadge(x.lifecycle_info)}
+                    <span class="metaChip">${esc(themeT(x.theme))}</span>
                     ${x.z_score ? `<span class="metaChip">Z: ${fmt(x.z_score)}</span>` : ''}
                 </div>
                 <div class="bar"><i style="width:${Math.min(100, Number(x.trend_score) || 0)}%"></i></div>
             </div>
             <div class="grow">${fmt(x.trend_score)}</div>
-        </div>
-    `).join('') : `<p class="muted">${tr('noData')}</p>`;
-}
-
-function renderGoogle(a) {
-    $('#googleList').innerHTML = a.length ? a.map(x => `
-        <div class="googleRow">
-            <div style="flex:1">
-                <b>${esc(x.keyword)}</b>
-                <div class="meta">${esc(x.region || 'global')} · ${esc(x.source || 'Google')}</div>
-            </div>
-            <div class="grow">${Number(x.rising_score || 0).toFixed(1)} ↑</div>
-        </div>
-    `).join('') : `<p class="muted">${tr('noData')}</p>`;
+        </div>`).join('') : `<p class="muted">${tr('noData')}</p>`;
 }
 
 function renderMatrix(a) {
     $('#trendMatrix').innerHTML = a.map(x => `
         <div class="trendRow">
-            <div style="width:150px">
-                <b>${esc(x.keyword)}</b>
-                <div class="trendMeta">
-                    ${lifecycleBadge(x.lifecycle_info || {label:'Unknown',color:'#6b7280',icon:'❓'})}
-                </div>
+            <div style="width:150px"><b>${esc(x.keyword)}</b>
+                <div class="trendMeta">${lifecycleBadge(x.lifecycle_info)}</div>
             </div>
-            <div style="flex:1">
-                <div class="meta">
-                    Volume ${fmt(x.volume_score)} · 
-                    Velocity ${fmt(x.velocity_score)} · 
-                    ${x.z_score ? `Z-score ${fmt(x.z_score)} · ` : ''}
-                    Cross-platform ${fmt(x.cross_platform_score)}
-                </div>
-            </div>
+            <div style="flex:1"><div class="meta">Volume ${fmt(x.volume_score)} · Velocity ${fmt(x.velocity_score)} · Cross-platform ${fmt(x.cross_platform_score)}</div></div>
             <b>${fmt(x.trend_score)}</b>
-        </div>
-    `).join('');
+        </div>`).join('');
 }
 
 function renderThemes(themes) {
-    $('#themeGrid').innerHTML = themes.map(t => `
+    $('#themeGrid').innerHTML = themes.map((t, i) => {
+        const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : 'normal';
+        const rankLabel = state.lang === 'ko' ? `${i+1}위` : state.lang === 'ar' ? `المركز ${i+1}` : `#${i+1}`;
+        return `
         <div class="themeCard" style="border-color:${t.color}44">
             <div class="themeHeader">
+                <span class="themeRank ${rankClass}">${rankLabel}</span>
                 <span class="themeIcon">${t.icon}</span>
-                <span class="themeName">${esc(t.label)}</span>
+                <span class="themeName">${esc(themeT(t.theme))}</span>
             </div>
-            <div class="themeScore" style="color:${t.color}">${fmt(t.total_score)}</div>
             <div class="meta">${t.keyword_count} keywords</div>
-            <div class="themeKeywords">
-                ${t.top_keywords.slice(0, 5).map(k => `<span class="chip">${esc(k.keyword)}</span>`).join('')}
-            </div>
-        </div>
-    `).join('');
+            <div class="themeKeywords">${(t.top_keywords || []).slice(0, 5).map(k => `<span class="chip">${esc(k.keyword)}</span>`).join('')}</div>
+        </div>`;
+    }).join('');
 }
 
-function renderDelta(delta, containerId) {
-    const container = $(containerId);
-    container.innerHTML = `
-        <div class="deltaCard">
-            <h3 class="new">🆕 ${tr('newEntries')}</h3>
-            <ul class="deltaList">
-                ${delta.new.length ? delta.new.slice(0, 10).map(x => `<li>${esc(x.keyword)} <b>${fmt(x.score)}</b></li>`).join('') : '<li>None</li>'}
-            </ul>
-        </div>
-        <div class="deltaCard">
-            <h3 class="rising">📈 ${tr('risingTrends')}</h3>
-            <ul class="deltaList">
-                ${delta.rising.length ? delta.rising.slice(0, 10).map(x => `<li>${esc(x.keyword)} <b>${fmt(x.prev_score)} → ${fmt(x.curr_score)}</b></li>`).join('') : '<li>None</li>'}
-            </ul>
-        </div>
-        <div class="deltaCard">
-            <h3 class="cooling">📉 ${tr('coolingTrends')}</h3>
-            <ul class="deltaList">
-                ${delta.cooling.length ? delta.cooling.slice(0, 10).map(x => `<li>${esc(x.keyword)} <b>${fmt(x.prev_score)}${x.curr_score ? ' → ' + fmt(x.curr_score) : ' (gone)'}</b></li>`).join('') : '<li>None</li>'}
-            </ul>
-        </div>
-    `;
+// ========== Weekly / Monthly ==========
+function renderDelta(delta, sel) {
+    const box = $(sel);
+    if (!box) return;
+    const li = (list, f) => (list && list.length ? list.slice(0, 10).map(f).join('') : `<li>${tr('noData')}</li>`);
+    box.innerHTML = `
+        <div class="deltaCard"><h3 class="new">${tr('newEntries')}</h3><ul class="deltaList">${li(delta.new, x => `<li>${esc(x.keyword)} <b>${fmt(x.score)}</b></li>`)}</ul></div>
+        <div class="deltaCard"><h3 class="rising">${tr('risingTrends')}</h3><ul class="deltaList">${li(delta.rising, x => `<li>${esc(x.keyword)} <b>${fmt(x.prev_score)} → ${fmt(x.curr_score)}</b></li>`)}</ul></div>
+        <div class="deltaCard"><h3 class="cooling">${tr('coolingTrends')}</h3><ul class="deltaList">${li(delta.cooling, x => `<li>${esc(x.keyword)} <b>${fmt(x.prev_score)}${x.curr_score ? ' → ' + fmt(x.curr_score) : ''}</b></li>`)}</ul></div>`;
 }
 
-function renderWeeklyTrends(a) {
-    $('#weeklyList').innerHTML = a.length ? a.map((x, i) => `
+function renderPeriodList(a, sel, total) {
+    $(sel).innerHTML = (a && a.length) ? a.map((x, i) => `
         <div class="trendRow">
             <div class="rankNo">${i + 1}</div>
             <div style="flex:1">
                 <div class="trendName">${esc(x.keyword)}</div>
                 <div class="trendMeta">
-                    <span class="metaChip">${esc(x.theme_info?.label || 'Other')}</span>
-                    <span class="metaChip">지속일: ${x.active_days}/7</span>
+                    <span class="metaChip">${esc(themeT(x.theme))}</span>
+                    <span class="metaChip">${x.active_days}/${total}</span>
                 </div>
                 <div class="bar"><i style="width:${Math.min(100, Number(x.avg_score) || 0)}%"></i></div>
             </div>
             <div class="grow">${fmt(x.total_score)}</div>
-        </div>
-    `).join('') : `<p class="muted">${tr('noData')}</p>`;
+        </div>`).join('') : `<p class="muted">${tr('noData')}</p>`;
 }
 
-function renderMonthlyTrends(a) {
-    $('#monthlyList').innerHTML = a.length ? a.map((x, i) => `
-        <div class="trendRow">
-            <div class="rankNo">${i + 1}</div>
-            <div style="flex:1">
-                <div class="trendName">${esc(x.keyword)}</div>
-                <div class="trendMeta">
-                    <span class="metaChip">${esc(x.theme_info?.label || 'Other')}</span>
-                    <span class="metaChip">지속일: ${x.active_days}/30</span>
-                </div>
-                <div class="bar"><i style="width:${Math.min(100, Number(x.avg_score) || 0)}%"></i></div>
-            </div>
-            <div class="grow">${fmt(x.total_score)}</div>
-        </div>
-    `).join('') : `<p class="muted">${tr('noData')}</p>`;
+// ========== Products ==========
+function scoreHtml(p) {
+    return (Number(p.overall_score) > 0) ? fmt(p.overall_score) : `<span class="noData" title="${tr('scoreNone')}">—</span>`;
 }
-
-// ========== Data Loading ==========
-async function loadDailyData() {
-    try {
-        const d = await api('/api/trends/daily');
-        $('#trendCount').textContent = (d.raw_signal_count || 0).toLocaleString();
-        $('#topTrend').textContent = d.trends?.[0]?.keyword || '-';
-        $('#googleCount').textContent = (d.google?.length || 0);
-        $('#catalogDate').textContent = d.date || '';
-        renderTrends(d.trends || []);
-        renderGoogle(d.google || []);
-        renderMatrix(d.trends || []);
-        
-        // Load themes
-        const themes = await api('/api/trends/themes');
-        renderThemes(themes.themes || []);
-    } catch (e) {
-        console.error('Daily load error:', e);
-    }
-}
-
-async function loadWeeklyData() {
-    try {
-        const d = await api('/api/trends/weekly');
-        renderWeeklyTrends(d.trends || []);
-        renderDelta(d.delta || {}, '#weeklyDelta');
-    } catch (e) {
-        console.error('Weekly load error:', e);
-    }
-}
-
-async function loadMonthlyData() {
-    try {
-        const d = await api('/api/trends/monthly');
-        renderMonthlyTrends(d.trends || []);
-        renderDelta(d.delta || {}, '#monthlyDelta');
-    } catch (e) {
-        console.error('Monthly load error:', e);
-    }
-}
-
-function loadPeriodData() {
-    if (state.currentPeriod === 'daily') loadDailyData();
-    else if (state.currentPeriod === 'weekly') loadWeeklyData();
-    else if (state.currentPeriod === 'monthly') loadMonthlyData();
-}
-
-// ========== Ranking (Products) ==========
-$$('.rankTab').forEach(b => b.onclick = () => {
-    state.kind = b.dataset.kind;
-    $$('.rankTab').forEach(x => x.classList.toggle('active', x === b));
-    loadRanking();
-});
 
 function rankCard(p, i) {
     const score = state.kind === 'overall' ? p.overall_score : state.kind === 'olive' ? p.olive_rank : p.daiso_score;
-    return `
-        <div class="rankRow">
-            <div class="rankNo">${i}</div>
-            <div style="flex:1">
-                <div class="prodName">${esc(p.product_name)}</div>
-                <div class="meta">${esc(p.brand || '')} · ${esc(p.category || '')} · ${esc(p.source || '')}</div>
-            </div>
-            <div class="grow">${state.kind === 'olive' ? '#' + score : (fmt(score) + ' ' + tr('score'))}</div>
-        </div>
-    `;
+    const right = state.kind === 'olive' ? (score ? '#' + score : '—') : (Number(score) > 0 ? fmt(score) + ' ' + tr('score') : `<span class="noData">—</span>`);
+    return `<div class="rankRow">
+        <div class="rankNo">${i}</div>
+        <div style="flex:1"><div class="prodName">${esc(p.product_name)}</div>
+        <div class="meta">${esc(p.brand || '')} · ${esc(p.category || '')}</div></div>
+        <div class="grow">${right}</div>
+    </div>`;
+}
+
+function renderProducts() {
+    const a = state.products;
+    $('#products').innerHTML = a.map(p => `
+        <div class="productCard" data-id="${esc(p.product_id)}">
+            <div class="source">${esc(p.source || '')}</div>
+            <h3>${esc(p.product_name)}</h3>
+            <div class="meta">${esc(p.brand || '')} · ${esc(p.category || '')}</div>
+            <div class="meta">${tr('score')} · ${p.olive_rank ? 'OY #' + p.olive_rank : ''}${p.daiso_score ? ' · Daiso ' + fmt(p.daiso_score) : ''}${Number(p.overall_score) <= 0 ? ' · ' + tr('scoreNone') : ''}</div>
+            <div class="chips">${arr(p.keywords).slice(0, 5).map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>
+        </div>`).join('');
+    $$('.productCard').forEach(x => x.onclick = () => openDetail(x.dataset.id));
+    $('#loadMore').style.display = state.hasMore ? 'block' : 'none';
+}
+
+async function loadProducts(reset = true) {
+    if (reset) { state.page = 0; state.products = []; }
+    const q = encodeURIComponent(state.q), cat = encodeURIComponent(state.category);
+    const limit = reset ? state.initialLoad : state.loadMoreStep;
+    const d = await api(`/api/products?q=${q}&category=${cat}&limit=${limit}&offset=${state.page * state.loadMoreStep}`);
+    state.products = reset ? d.items : state.products.concat(d.items);
+    state.hasMore = d.has_more;
+    $('#productDate').textContent = d.latest_date || $('#productDate').textContent;
+    renderProducts();
 }
 
 async function loadRanking() {
@@ -389,80 +248,127 @@ async function loadRanking() {
         $('#productDate').textContent = d.latest_date || '';
         $('#rankTitle').textContent = tr(state.kind);
         $('#rankingList').innerHTML = d.items.map((p, i) => rankCard(p, i + 1)).join('');
-    } catch (e) {
-        $('#rankingList').innerHTML = '<p>' + tr('noData') + '</p>';
-    }
+    } catch (e) { $('#rankingList').innerHTML = '<p>' + tr('noData') + '</p>'; }
 }
 
-// ========== Products ==========
+async function loadChangeData() {
+    try {
+        const d = await api('/api/rankings/change');
+        const renderList = (items, type, elId) => {
+            const el = $(elId);
+            if (!items || !items.length) { el.innerHTML = `<li>${tr('noData')}</li>`; return; }
+            el.innerHTML = items.slice(0, 15).map(item => {
+                const mall = item.source === 'oliveyoung' ? tr('mallOlive') : tr('mallDaiso');
+                let badge = '';
+                if (type === 'new') badge = `<span class="changeBadge new">🆕</span>`;
+                else if (type === 'rise') badge = `<span class="changeBadge rise">▲ +${item.diff}</span>`;
+                else if (type === 'fall') badge = `<span class="changeBadge fall">▼ ${item.diff}</span>`;
+                return `<li>${esc(item.product_name)} <span class="mallBadge">${mall}</span> ${badge}</li>`;
+            }).join('');
+        };
+        renderList(d.new, 'new', '#changeNew');
+        renderList(d.rising, 'rise', '#changeRise');
+        renderList(d.falling, 'fall', '#changeFall');
+    } catch (e) { console.error('Change data error:', e); }
+}
+
 async function loadCategories() {
     const d = await api('/api/categories');
     $('#category').innerHTML = '<option value="">' + tr('allCategories') + '</option>' + d.items.map(x => `<option value="${esc(x.category)}">${esc(x.category)} (${x.count})</option>`).join('');
 }
-
-async function loadProducts(reset = true) {
-    if (reset) { state.page = 0; state.products = []; }
-    const q = encodeURIComponent(state.q), cat = encodeURIComponent(state.category);
-    const d = await api(`/api/products?q=${q}&category=${cat}&limit=200&offset=${state.page * 200}`);
-    state.products = reset ? d.items : state.products.concat(d.items);
-    state.hasMore = d.has_more;
-    $('#productDate').textContent = d.latest_date || $('#productDate').textContent;
-    renderProducts();
-}
-
-function renderProducts() {
-    const a = state.products.slice(0, 200);
-    $('#products').innerHTML = a.map(p => `
-        <div class="productCard" data-id="${esc(p.product_id)}">
-            <div class="source">${esc(p.source || '')}</div>
-            <h3>${esc(p.product_name)}</h3>
-            <div class="meta">${esc(p.brand || '')} · ${esc(p.category || '')}</div>
-            <div class="score">${fmt(p.overall_score)}</div>
-            <div class="meta">${tr('score')} · ${p.olive_rank ? 'OY #' + p.olive_rank : ''}${p.daiso_score ? '· Daiso ' + fmt(p.daiso_score) : ''}</div>
-            <div class="chips">${arr(p.keywords).slice(0, 5).map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>
-        </div>
-    `).join('');
-    $$('.productCard').forEach(x => x.onclick = () => openDetail(x.dataset.id));
-    $('#loadMore').style.display = state.hasMore ? 'block' : 'none';
-}
-
-let timer;
-$('#search').addEventListener('input', e => { clearTimeout(timer); state.q = e.target.value; timer = setTimeout(() => loadProducts(), 350); });
-$('#category').addEventListener('change', e => { state.category = e.target.value; loadProducts(); });
-$('#loadMore').onclick = () => { state.page++; loadProducts(false); };
 
 async function openDetail(id) {
     const d = await api('/api/products/' + encodeURIComponent(id));
     if (!d.found) return;
     const p = d.product;
     $('#detail').innerHTML = `
-        <p class="eyebrow">${tr('details')}</p>
-        <h2>${esc(p.product_name)}</h2>
+        <p class="eyebrow">${tr('details')}</p><h2>${esc(p.product_name)}</h2>
         <p class="muted">${esc(p.brand || '')} · ${esc(p.source || '')} · ${esc(p.category || '')}</p>
-        <div class="detailGrid">
-            ${['product_type', 'ingredients', 'key_ingredients', 'keywords', 'skin_type', 'concerns', 'texture', 'claims'].map(k => `
-                <div class="detailItem">
-                    <b>${tr(k)}</b>
-                    <div>${arr(p[k]).map(x => `<span class="chip">${esc(x)}</span>`).join(' ') || esc(p[k] || tr('noData'))}</div>
-                </div>
-            `).join('')}
+        <div class="detailGrid">${['product_type','ingredients','key_ingredients','keywords','skin_type','concerns','texture','claims'].map(k => `
+            <div class="detailItem"><b>${tr(k)}</b>
+            <div>${arr(p[k]).map(x => `<span class="chip">${esc(x)}</span>`).join(' ') || esc(p[k] || tr('noData'))}</div></div>`).join('')}
         </div>
-        <div class="detailItem" style="margin-top:14px">
-            <b>${tr('score')}</b>
-            <div style="font-size:30px;font-weight:900">${fmt(p.overall_score)}</div>
+        <div class="detailItem" style="margin-top:14px"><b>${tr('score')}</b>
+            <div style="font-size:30px;font-weight:900">${scoreHtml(p)}</div>
             <div class="meta">Olive Young: ${p.olive_rank ? '#' + p.olive_rank : '-'} · Daiso: ${p.daiso_score ? fmt(p.daiso_score) : '-'}</div>
         </div>
-        <div class="detailItem" style="margin-top:14px">
-            <b>Rank History</b>
-            <div class="chips">${d.rankings.slice(0, 20).map(r => `<span class="chip">${esc(r.ranking_date)} · ${esc(r.source)} · #${r.rank_num}</span>`).join('')}</div>
-        </div>
-    `;
+        <div class="detailItem" style="margin-top:14px"><b>Rank History</b>
+            <div class="chips">${(d.rankings || []).slice(0, 20).map(r => `<span class="chip">${esc(r.ranking_date)} · ${esc(r.source)} · #${r.rank_num}</span>`).join('') || tr('noData')}</div>
+        </div>`;
     $('#modal').classList.add('show');
 }
 
+// ========== Search autocomplete ==========
+async function loadSuggestions() {
+    try { const d = await api('/api/suggestions'); SUGGESTIONS = d.items || []; } catch (e) { SUGGESTIONS = []; }
+}
+function renderSuggestions() {
+    const q = state.q.trim().toLowerCase();
+    const list = SUGGESTIONS.filter(k => !q || k.toLowerCase().includes(q)).slice(0, 18);
+    const box = $('#suggestBox');
+    if (!list.length) { box.classList.remove('show'); return; }
+    box.innerHTML = list.map(k => `<span class="chip" data-k="${esc(k)}">${esc(k)}</span>`).join('');
+    box.classList.add('show');
+    $$('#suggestBox .chip').forEach(ch => ch.onclick = () => {
+        $('#search').value = ch.dataset.k; state.q = ch.dataset.k;
+        box.classList.remove('show'); loadProducts();
+    });
+}
+
+let timer;
+$('#search').addEventListener('input', e => {
+    state.q = e.target.value; renderSuggestions();
+    clearTimeout(timer); timer = setTimeout(() => loadProducts(), 350);
+});
+$('#search').addEventListener('focus', renderSuggestions);
+document.addEventListener('click', e => { if (!e.target.closest('.searchWrap')) $('#suggestBox').classList.remove('show'); });
+$('#category').addEventListener('change', e => { state.category = e.target.value; loadProducts(); });
+$('#loadMore').onclick = () => { state.page++; loadProducts(false); };
+
+$$('.rankTab').forEach(b => b.onclick = () => {
+    state.kind = b.dataset.kind;
+    $$('.rankTab').forEach(x => x.classList.toggle('active', x === b));
+    if (state.kind === 'change') {
+        $('#rankPanel').style.display = 'none';
+        $('#changePanel').style.display = 'block';
+        loadChangeData();
+    } else {
+        $('#rankPanel').style.display = 'block';
+        $('#changePanel').style.display = 'none';
+        loadRanking();
+    }
+});
+
+// ========== Data loading ==========
+async function loadDailyData() {
+    try {
+        const d = await api('/api/trends/daily');
+        $('#catalogDate').textContent = d.date || '';
+        renderTrends(d.trends || []);
+        renderMatrix(d.trends || []);
+        const t = await api('/api/trends/themes');
+        renderThemes(t.themes || []);
+    } catch (e) { console.error(e); }
+}
+async function loadWeeklyData() {
+    try { const d = await api('/api/trends/weekly'); renderPeriodList(d.trends || [], '#weeklyList', 5); renderDelta(d.delta || {}, '#weeklyDelta'); } catch (e) { console.error(e); }
+}
+async function loadMonthlyData() {
+    try { const d = await api('/api/trends/monthly'); renderPeriodList(d.trends || [], '#monthlyList', 30); renderDelta(d.delta || {}, '#monthlyDelta'); } catch (e) { console.error(e); }
+}
+function loadPeriodData() {
+    if (state.currentPeriod === 'daily') loadDailyData();
+    else if (state.currentPeriod === 'weekly') loadWeeklyData();
+    else loadMonthlyData();
+}
+
 function renderAll() {
-    renderRankings();
-    renderProducts();
+    if ($('#trendPage').classList.contains('active')) loadPeriodData();
+    if ($('#productsPage').classList.contains('active')) {
+        if (state.kind === 'change') loadChangeData();
+        else loadRanking();
+        renderProducts();
+    }
 }
 
 $('#close').onclick = () => $('#modal').classList.remove('show');
@@ -473,3 +379,4 @@ applyLang();
 loadDailyData();
 loadRanking();
 loadCategories();
+loadSuggestions();
