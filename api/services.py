@@ -537,3 +537,87 @@ def ranking_rows(kind='overall', limit=50):
     for i, p in enumerate(rows[:limit], 1):
         p['display_rank'] = i
     return rows[:limit], latest
+
+def get_ranking_change(limit: int = 50) -> dict:
+    """어제 vs 오늘 랭킹 변동 계산"""
+    c = get_catalog_db()
+    
+    # daily_rankings 테이블 확인
+    tables = [r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+    if 'daily_rankings' not in tables:
+        c.close()
+        return {"new": [], "rising": [], "falling": []}
+    
+    cols = table_cols(c, 'daily_rankings')
+    dcol = next((x for x in ('run_date', 'ranking_date', 'date', 'captured_at') if x in cols), None)
+    if not dcol:
+        c.close()
+        return {"new": [], "rising": [], "falling": []}
+    
+    rcol = 'rank_num' if 'rank_num' in cols else 'rank'
+    
+    # 최신 2개 날짜 가져오기
+    dates = c.execute(f"SELECT DISTINCT {dcol} FROM daily_rankings ORDER BY {dcol} DESC LIMIT 2").fetchall()
+    if len(dates) < 2:
+        c.close()
+        return {"new": [], "rising": [], "falling": []}
+    
+    today_date = dates[0][dcol]
+    yesterday_date = dates[1][dcol]
+    
+    # 오늘 랭킹
+    today_rows = c.execute(f"SELECT product_id, {rcol} rank_num, source FROM daily_rankings WHERE {dcol}=?", (today_date,)).fetchall()
+    yesterday_rows = c.execute(f"SELECT product_id, {rcol} rank_num, source FROM daily_rankings WHERE {dcol}=?", (yesterday_date,)).fetchall()
+    
+    today_map = {r['product_id']: {'rank': r['rank_num'], 'source': r['source']} for r in today_rows}
+    yesterday_map = {r['product_id']: {'rank': r['rank_num'], 'source': r['source']} for r in yesterday_rows}
+    
+    # 제품 이름 가져오기
+    prod_rows = c.execute("SELECT product_id, product_name FROM products").fetchall()
+    prod_names = {r['product_id']: r['product_name'] for r in prod_rows}
+    c.close()
+    
+    new_entries = []
+    rising = []
+    falling = []
+    
+    for pid, today_info in today_map.items():
+        if pid not in yesterday_map:
+            # 신규 진입
+            new_entries.append({
+                "product_id": pid,
+                "product_name": prod_names.get(pid, pid),
+                "source": today_info['source'],
+                "rank": today_info['rank']
+            })
+        else:
+            diff = yesterday_map[pid]['rank'] - today_info['rank']
+            if diff > 0:
+                rising.append({
+                    "product_id": pid,
+                    "product_name": prod_names.get(pid, pid),
+                    "source": today_info['source'],
+                    "diff": diff,
+                    "today_rank": today_info['rank'],
+                    "yesterday_rank": yesterday_map[pid]['rank']
+                })
+            elif diff < 0:
+                falling.append({
+                    "product_id": pid,
+                    "product_name": prod_names.get(pid, pid),
+                    "source": today_info['source'],
+                    "diff": abs(diff),
+                    "today_rank": today_info['rank'],
+                    "yesterday_rank": yesterday_map[pid]['rank']
+                })
+    
+    # 정렬
+    new_entries.sort(key=lambda x: x['rank'])
+    rising.sort(key=lambda x: -x['diff'])
+    falling.sort(key=lambda x: -x['diff'])
+    
+    return {
+        "new": new_entries[:limit],
+        "rising": rising[:limit],
+        "falling": falling[:limit]
+    }
