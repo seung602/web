@@ -142,7 +142,7 @@ def get_theme_rollup(days=7):
     result = []
     for theme, data in themes.items():
         meta = THEME_META.get(theme, {"icon":"📦","color":"#6b7280"})
-        top = sorted(data["keywords"], key=lambda x: -x["score"])[:5]
+        top = sorted(data["keywords"], key=lambda x: -x["score"])
         result.append({"theme": theme, "icon": meta["icon"], "color": meta["color"], "total_score": data["total_score"], "keyword_count": data["count"], "top_keywords": top})
     result.sort(key=lambda x: -x["total_score"])
     return {"themes": result, "period_days": days}
