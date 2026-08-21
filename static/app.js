@@ -18,9 +18,7 @@ ar:{barrier_soothing:'حاجز·تهدئة',sun_protection:'حماية الشم�
 
 function tr(k){ return T[state.lang][k] || T.en[k] || k; }
 function themeT(k){ return (THEME_T[state.lang]||{})[k] || THEME_T.en[k] || k; }
-// 언어 토글에 맞춰 상품명을 한글/영문으로 전환. 영문 번역이 없으면 한글로 폴백.
 function pname(p){ return (state.lang !== 'ko' && p.product_name_en) ? p.product_name_en : p.product_name; }
-// 브랜드/카테고리도 동일하게 전환 (term_translations 캐시 기반, 없으면 한글 폴백)
 function bname(p){ return (state.lang !== 'ko' && p.brand_en) ? p.brand_en : p.brand; }
 function cname(p){ return (state.lang !== 'ko' && p.category_en) ? p.category_en : p.category; }
 function esc(x){ return String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -33,6 +31,7 @@ function applyLang(){
   document.body.classList.toggle('rtl', state.lang==='ar');
   $$('[data-t]').forEach(e => e.textContent = tr(e.dataset.t));
   $$('[data-ph]').forEach(e => e.placeholder = tr(e.dataset.ph));
+  loadCategories();
   renderAll();
 }
 
@@ -68,10 +67,11 @@ function renderMatrix(a){
 }
 
 function renderThemes(themes){
+  const kwLabel = {ko:'키워드', en:'keywords', ar:'كلمة مفتاحية'}[state.lang] || 'keywords';
   $('#themeGrid').innerHTML = (themes && themes.length) ? themes.map((t,i) => {
     const rc = i===0?'gold':i===1?'silver':i===2?'bronze':'normal';
     const rl = state.lang==='ko' ? `${i+1}위` : state.lang==='ar' ? `المركز ${i+1}` : `#${i+1}`;
-    return `<div class="themeCard" style="border-color:${t.color}44"><div class="themeHeader"><span class="themeRank ${rc}">${rl}</span><span class="themeIcon">${t.icon}</span><span class="themeName">${esc(themeT(t.theme))}</span></div><div class="meta">${t.keyword_count} keywords</div><div class="themeKeywords">${(t.top_keywords||[]).map(k=>`<span class="chip">${esc(k.keyword)}</span>`).join('')}</div></div>`;
+    return `<div class="themeCard" style="border-color:${t.color}44"><div class="themeHeader"><span class="themeRank ${rc}">${rl}</span><span class="themeIcon">${t.icon}</span><span class="themeName">${esc(themeT(t.theme))}</span></div><div class="meta">${t.keyword_count} ${kwLabel}</div><div class="themeKeywords">${(t.top_keywords||[]).map(k=>`<span class="chip">${esc(k.keyword)}</span>`).join('')}</div></div>`;
   }).join('') : `<p class="muted">${tr('noData')}</p>`;
 }
 
@@ -160,7 +160,11 @@ async function loadChangeData(){
 
 async function loadCategories(){
   const d = await api('/api/categories');
-  $('#category').innerHTML = `<option value="">${tr('allCategories')}</option>` + d.items.map(x=>`<option value="${esc(x.category)}">${esc(x.category)} (${x.count})</option>`).join('');
+  $('#category').innerHTML = `<option value="">${tr('allCategories')}</option>` + 
+    d.items.map(x => {
+      const displayName = (state.lang !== 'ko' && x.category_en) ? x.category_en : x.category;
+      return `<option value="${esc(x.category)}">${esc(displayName)} (${x.count})</option>`;
+    }).join('');
 }
 
 async function loadSuggestions(){
