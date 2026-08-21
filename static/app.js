@@ -71,7 +71,7 @@ function renderThemes(themes){
   $('#themeGrid').innerHTML = (themes && themes.length) ? themes.map((t,i) => {
     const rc = i===0?'gold':i===1?'silver':i===2?'bronze':'normal';
     const rl = state.lang==='ko' ? `${i+1}위` : state.lang==='ar' ? `المركز ${i+1}` : `#${i+1}`;
-    return `<div class="themeCard" style="border-color:${t.color}44"><div class="themeHeader"><span class="themeRank ${rc}">${rl}</span><span class="themeIcon">${t.icon}</span><span class="themeName">${esc(themeT(t.theme))}</span></div><div class="meta">${t.keyword_count} keywords</div><div class="themeKeywords">${(t.top_keywords||[]).slice(0,5).map(k=>`<span class="chip">${esc(k.keyword)}</span>`).join('')}</div></div>`;
+    return `<div class="themeCard" style="border-color:${t.color}44"><div class="themeHeader"><span class="themeRank ${rc}">${rl}</span><span class="themeIcon">${t.icon}</span><span class="themeName">${esc(themeT(t.theme))}</span></div><div class="meta">${t.keyword_count} keywords</div><div class="themeKeywords">${(t.top_keywords||[]).map(k=>`<span class="chip">${esc(k.keyword)}</span>`).join('')}</div></div>`;
   }).join('') : `<p class="muted">${tr('noData')}</p>`;
 }
 
