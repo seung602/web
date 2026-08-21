@@ -142,7 +142,7 @@ def get_theme_rollup(days=7):
     result = []
     for theme, data in themes.items():
         meta = THEME_META.get(theme, {"icon":"📦","color":"#6b7280"})
-        top = sorted(data["keywords"], key=lambda x: -x["score"])
+        top = sorted(data["keywords"], key=lambda x: -x["score"])[:5]
         result.append({"theme": theme, "icon": meta["icon"], "color": meta["color"], "total_score": data["total_score"], "keyword_count": data["count"], "top_keywords": top})
     result.sort(key=lambda x: -x["total_score"])
     return {"themes": result, "period_days": days}
@@ -189,11 +189,33 @@ def get_trend_dashboard():
     d = get_daily_trends(limit=20)
     return {"latest_catalog": None, "trends": d["trends"], "google": d["google"], "raw_signal_count": d["raw_signal_count"], "top_keywords": [{"keyword": t["keyword"], "score": t["trend_score"]} for t in d["trends"][:20]]}
 
+def _load_term_maps(conn):
+    """브랜드/카테고리/상위카테고리 한글->영문 캐시 테이블을 dict로 로드 (없으면 빈 dict)"""
+    maps = {'brand': {}, 'category': {}, 'parent_category': {}}
+    exists = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='term_translations'"
+    ).fetchone() is not None
+    if not exists:
+        return maps
+    for row in conn.execute("SELECT term_type, term_ko, term_en FROM term_translations WHERE term_en IS NOT NULL"):
+        if row['term_type'] in maps:
+            maps[row['term_type']][row['term_ko']] = row['term_en']
+    return maps
+
+
+def _apply_term_translations(rows, term_maps):
+    for p in rows:
+        p['brand_en'] = term_maps['brand'].get(p.get('brand'))
+        p['category_en'] = term_maps['category'].get(p.get('category'))
+        p['parent_category_en'] = term_maps['parent_category'].get(p.get('parent_category'))
+
+
 def load_products(limit=None, q=None, category=None, source=None, keyword=None, offset=0):
     c = get_catalog_db()
     cols = table_cols(c, 'products')
     attr_exists = c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='product_attributes'").fetchone() is not None
     has_en = 'product_name_en' in cols
+    term_maps = _load_term_maps(c)
     base = ['p.product_id','p.source','p.brand','p.product_name','p.product_url','p.category','p.parent_category','p.price','p.sale_price','p.review_count','p.rating','p.daiso_score','p.is_new','p.status']
     if has_en: base.append('p.product_name_en')
     if attr_exists:
@@ -203,13 +225,27 @@ def load_products(limit=None, q=None, category=None, source=None, keyword=None, 
             if x in cols: base.append(f'p.{x}')
     where = ["p.status='ACTIVE'"]; args = []
     if q or keyword:
-        qv = f'%{q or keyword}%'
+        qv_raw = (q or keyword).strip().lower()
+        qv = f'%{qv_raw}%'
         sf = ['p.product_name','p.brand','p.category','p.parent_category']
         if has_en: sf.append('p.product_name_en')
         if attr_exists: sf += ['a.product_type','a.keywords','a.skin_type','a.concerns','a.texture','a.key_ingredients','a.claims']
         else: sf += [f'p.{x}' for x in ('product_type','keywords','skin_type','concerns','texture','key_ingredients','claims') if x in cols]
-        where.append('(' + ' OR '.join(f'LOWER(COALESCE({x},\'\')) LIKE LOWER(?)' for x in sf) + ')')
-        args += [qv] * len(sf)
+        clauses = [f'LOWER(COALESCE({x},\'\')) LIKE LOWER(?)' for x in sf]
+        clause_args = [qv] * len(sf)
+        # 영문 브랜드/카테고리 검색어(예: "mediheal", "sunscreen")도 매칭되도록
+        # term_translations 캐시에서 영문 번역이 검색어를 포함하는 한글 원본을 찾아 IN 조건 추가
+        matched_brands = [ko for ko, en in term_maps['brand'].items() if qv_raw in en.lower()]
+        matched_categories = [ko for ko, en in term_maps['category'].items() if qv_raw in en.lower()]
+        matched_parent = [ko for ko, en in term_maps['parent_category'].items() if qv_raw in en.lower()]
+        if matched_brands:
+            clauses.append(f"p.brand IN ({','.join('?' for _ in matched_brands)})"); clause_args += matched_brands
+        if matched_categories:
+            clauses.append(f"p.category IN ({','.join('?' for _ in matched_categories)})"); clause_args += matched_categories
+        if matched_parent:
+            clauses.append(f"p.parent_category IN ({','.join('?' for _ in matched_parent)})"); clause_args += matched_parent
+        where.append('(' + ' OR '.join(clauses) + ')')
+        args += clause_args
     if category: where.append('(p.category=? OR p.parent_category=?)'); args += [category, category]
     if source: where.append('p.source=?'); args.append(source)
     join = " LEFT JOIN product_attributes a ON a.product_id=p.product_id" if attr_exists else ""
@@ -223,6 +259,7 @@ def load_products(limit=None, q=None, category=None, source=None, keyword=None, 
         p['olive_rank'] = olive.get(p['product_id']); p['daiso_rank'] = daiso.get(p['product_id'])
         p['overall_score'] = product_score(p, tm, p['olive_rank'], p.get('daiso_score'))
         p['keyword_list'] = _list_field(p.get('keywords')); p['ingredient_list'] = _list_field(p.get('key_ingredients'))
+    _apply_term_translations(rows, term_maps)
     c.close()
     return rows, latest
 
@@ -232,6 +269,7 @@ def ranking_rows(kind='overall', limit=50):
     olive, daiso = load_rank_maps(c, latest)
     attr_exists = c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='product_attributes'").fetchone() is not None
     cols = table_cols(c, 'products')
+    term_maps = _load_term_maps(c)
     fields = ['p.product_id','p.source','p.brand','p.product_name','p.product_url','p.category','p.parent_category','p.price','p.sale_price','p.review_count','p.rating','p.daiso_score','p.is_new']
     if 'product_name_en' in cols: fields.append('p.product_name_en')
     if attr_exists: fields += ['a.product_type','a.keywords','a.skin_type','a.concerns','a.texture','a.key_ingredients','a.claims']
@@ -243,6 +281,7 @@ def ranking_rows(kind='overall', limit=50):
         p['olive_rank'] = olive.get(p['product_id']); p['daiso_rank'] = daiso.get(p['product_id'])
         p['overall_score'] = product_score(p, tm, p['olive_rank'], p.get('daiso_score'))
         p['keyword_list'] = _list_field(p.get('keywords')); p['ingredient_list'] = _list_field(p.get('key_ingredients'))
+    _apply_term_translations(rows, term_maps)
     if kind == 'olive':
         rows = [p for p in rows if p['olive_rank']]; rows.sort(key=lambda x: x['olive_rank'])
     elif kind == 'daiso':
