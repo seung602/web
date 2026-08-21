@@ -20,6 +20,9 @@ function tr(k){ return T[state.lang][k] || T.en[k] || k; }
 function themeT(k){ return (THEME_T[state.lang]||{})[k] || THEME_T.en[k] || k; }
 // 언어 토글에 맞춰 상품명을 한글/영문으로 전환. 영문 번역이 없으면 한글로 폴백.
 function pname(p){ return (state.lang !== 'ko' && p.product_name_en) ? p.product_name_en : p.product_name; }
+// 브랜드/카테고리도 동일하게 전환 (term_translations 캐시 기반, 없으면 한글 폴백)
+function bname(p){ return (state.lang !== 'ko' && p.brand_en) ? p.brand_en : p.brand; }
+function cname(p){ return (state.lang !== 'ko' && p.category_en) ? p.category_en : p.category; }
 function esc(x){ return String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function arr(v){ if(!v) return []; if(Array.isArray(v)) return v; try{ const x=JSON.parse(v); if(Array.isArray(x)) return x; }catch{} return String(v).split(/[,|;\n]+/).map(x=>x.trim()).filter(Boolean); }
 async function api(u){ const r = await fetch(u); if(!r.ok) throw Error(r.status); return r.json(); }
@@ -98,7 +101,7 @@ function rankCard(p, i){
   const nameHtml = p.product_url
     ? `<a href="${esc(p.product_url)}" target="_blank" rel="noopener noreferrer" class="prodNameLink">${esc(pname(p))}</a>`
     : `<span class="prodName">${esc(pname(p))}</span>`;
-  return `<div class="rankRow"><div class="rankNo">${i}</div><div class="rankBody"><div class="rankNameLine">${nameHtml} ${badge}</div><div class="meta">${esc(p.brand||'')} · ${esc(p.category||'')}</div></div></div>`;
+  return `<div class="rankRow"><div class="rankNo">${i}</div><div class="rankBody"><div class="rankNameLine">${nameHtml} ${badge}</div><div class="meta">${esc(bname(p)||'')} · ${esc(cname(p)||'')}</div></div></div>`;
 }
 
 function renderProducts(){
@@ -106,7 +109,7 @@ function renderProducts(){
   <div class="productCard" data-url="${esc(p.product_url||'')}">
     <div class="source">${esc(p.source||'')}</div>
     <a href="${esc(p.product_url||'#')}" target="_blank" rel="noopener noreferrer" class="prodNameLink">${esc(pname(p))}</a>
-    <div class="meta">${esc(p.brand||'')} · ${esc(p.category||'')}</div>
+    <div class="meta">${esc(bname(p)||'')} · ${esc(cname(p)||'')}</div>
     <div class="chips">${arr(p.keywords).slice(0,4).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>
   </div>`).join('');
   $('#loadMore').style.display = state.hasMore ? 'block' : 'none';
