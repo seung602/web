@@ -142,7 +142,7 @@ def get_theme_rollup(days=7):
     result = []
     for theme, data in themes.items():
         meta = THEME_META.get(theme, {"icon":"📦","color":"#6b7280"})
-        top = sorted(data["keywords"], key=lambda x: -x["score"])
+        top = sorted(data["keywords"], key=lambda x: -x["score"])  # ✅ [:5] 제거
         result.append({"theme": theme, "icon": meta["icon"], "color": meta["color"], "total_score": data["total_score"], "keyword_count": data["count"], "top_keywords": top})
     result.sort(key=lambda x: -x["total_score"])
     return {"themes": result, "period_days": days}
@@ -202,13 +202,11 @@ def _load_term_maps(conn):
             maps[row['term_type']][row['term_ko']] = row['term_en']
     return maps
 
-
 def _apply_term_translations(rows, term_maps):
     for p in rows:
         p['brand_en'] = term_maps['brand'].get(p.get('brand'))
         p['category_en'] = term_maps['category'].get(p.get('category'))
         p['parent_category_en'] = term_maps['parent_category'].get(p.get('parent_category'))
-
 
 def load_products(limit=None, q=None, category=None, source=None, keyword=None, offset=0):
     c = get_catalog_db()
@@ -233,8 +231,6 @@ def load_products(limit=None, q=None, category=None, source=None, keyword=None, 
         else: sf += [f'p.{x}' for x in ('product_type','keywords','skin_type','concerns','texture','key_ingredients','claims') if x in cols]
         clauses = [f'LOWER(COALESCE({x},\'\')) LIKE LOWER(?)' for x in sf]
         clause_args = [qv] * len(sf)
-        # 영문 브랜드/카테고리 검색어(예: "mediheal", "sunscreen")도 매칭되도록
-        # term_translations 캐시에서 영문 번역이 검색어를 포함하는 한글 원본을 찾아 IN 조건 추가
         matched_brands = [ko for ko, en in term_maps['brand'].items() if qv_raw in en.lower()]
         matched_categories = [ko for ko, en in term_maps['category'].items() if qv_raw in en.lower()]
         matched_parent = [ko for ko, en in term_maps['parent_category'].items() if qv_raw in en.lower()]
@@ -262,6 +258,29 @@ def load_products(limit=None, q=None, category=None, source=None, keyword=None, 
     _apply_term_translations(rows, term_maps)
     c.close()
     return rows, latest
+
+def get_categories():
+    """✅ 신규 추가: 카테고리 목록 (다국어 지원)"""
+    c = get_catalog_db()
+    term_maps = _load_term_maps(c)
+    rows = c.execute("""
+        SELECT category, COUNT(*) as count 
+        FROM products 
+        WHERE status='ACTIVE' AND category IS NOT NULL AND category != ''
+        GROUP BY category 
+        ORDER BY count DESC
+    """).fetchall()
+    items = []
+    for r in rows:
+        cat_ko = r['category']
+        cat_en = term_maps['category'].get(cat_ko)
+        items.append({
+            "category": cat_ko,
+            "category_en": cat_en,
+            "count": r['count']
+        })
+    c.close()
+    return {"items": items}
 
 def ranking_rows(kind='overall', limit=50):
     c = get_catalog_db()
