@@ -193,7 +193,9 @@ def load_products(limit=None, q=None, category=None, source=None, keyword=None, 
     c = get_catalog_db()
     cols = table_cols(c, 'products')
     attr_exists = c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='product_attributes'").fetchone() is not None
+    has_en = 'product_name_en' in cols
     base = ['p.product_id','p.source','p.brand','p.product_name','p.product_url','p.category','p.parent_category','p.price','p.sale_price','p.review_count','p.rating','p.daiso_score','p.is_new','p.status']
+    if has_en: base.append('p.product_name_en')
     if attr_exists:
         base += ['a.product_type','a.keywords','a.skin_type','a.concerns','a.texture','a.key_ingredients','a.claims']
     else:
@@ -203,6 +205,7 @@ def load_products(limit=None, q=None, category=None, source=None, keyword=None, 
     if q or keyword:
         qv = f'%{q or keyword}%'
         sf = ['p.product_name','p.brand','p.category','p.parent_category']
+        if has_en: sf.append('p.product_name_en')
         if attr_exists: sf += ['a.product_type','a.keywords','a.skin_type','a.concerns','a.texture','a.key_ingredients','a.claims']
         else: sf += [f'p.{x}' for x in ('product_type','keywords','skin_type','concerns','texture','key_ingredients','claims') if x in cols]
         where.append('(' + ' OR '.join(f'LOWER(COALESCE({x},\'\')) LIKE LOWER(?)' for x in sf) + ')')
@@ -228,7 +231,9 @@ def ranking_rows(kind='overall', limit=50):
     latest, _ = _latest_catalog_date(c)
     olive, daiso = load_rank_maps(c, latest)
     attr_exists = c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='product_attributes'").fetchone() is not None
+    cols = table_cols(c, 'products')
     fields = ['p.product_id','p.source','p.brand','p.product_name','p.product_url','p.category','p.parent_category','p.price','p.sale_price','p.review_count','p.rating','p.daiso_score','p.is_new']
+    if 'product_name_en' in cols: fields.append('p.product_name_en')
     if attr_exists: fields += ['a.product_type','a.keywords','a.skin_type','a.concerns','a.texture','a.key_ingredients','a.claims']
     join = " LEFT JOIN product_attributes a ON a.product_id=p.product_id" if attr_exists else ""
     rows = [dict(r) for r in c.execute(f"SELECT {','.join(fields)} FROM products p{join} WHERE p.status='ACTIVE'").fetchall()]
@@ -260,13 +265,15 @@ def get_ranking_change(limit=50):
     dates = c.execute(f"SELECT DISTINCT {dcol} FROM daily_rankings ORDER BY {dcol} DESC LIMIT 2").fetchall()
     if len(dates) < 2:
         c.close(); return {"new": [], "rising": [], "falling": []}
-    today_rows = c.execute(f"SELECT r.product_id, r.{rcol} AS rank_num, r.source, COALESCE(p.product_url, p.product_id) AS product_url, p.product_name FROM daily_rankings r LEFT JOIN products p ON p.product_id=r.product_id WHERE r.{dcol}=?", (dates[0][dcol],)).fetchall()
+    pcols = table_cols(c, 'products')
+    name_en_sel = ", p.product_name_en" if 'product_name_en' in pcols else ""
+    today_rows = c.execute(f"SELECT r.product_id, r.{rcol} AS rank_num, r.source, COALESCE(p.product_url, p.product_id) AS product_url, p.product_name{name_en_sel} FROM daily_rankings r LEFT JOIN products p ON p.product_id=r.product_id WHERE r.{dcol}=?", (dates[0][dcol],)).fetchall()
     yesterday_rows = c.execute(f"SELECT product_id, {rcol} AS rank_num FROM daily_rankings WHERE {dcol}=?", (dates[1][dcol],)).fetchall()
-    today_map = {r['product_id']: {'rank': r['rank_num'], 'source': r['source'], 'product_url': r['product_url'], 'product_name': r['product_name']} for r in today_rows}
+    today_map = {r['product_id']: {'rank': r['rank_num'], 'source': r['source'], 'product_url': r['product_url'], 'product_name': r['product_name'], 'product_name_en': r['product_name_en'] if 'product_name_en' in pcols else None} for r in today_rows}
     yesterday_map = {r['product_id']: r['rank_num'] for r in yesterday_rows}
     new_e, rising, falling = [], [], []
     for pid, ti in today_map.items():
-        base = {"product_id": pid, "product_name": ti.get('product_name') or pid, "source": ti['source'], "product_url": ti.get('product_url') or "#", "rank": ti['rank']}
+        base = {"product_id": pid, "product_name": ti.get('product_name') or pid, "product_name_en": ti.get('product_name_en'), "source": ti['source'], "product_url": ti.get('product_url') or "#", "rank": ti['rank']}
         if pid not in yesterday_map:
             new_e.append(base)
         else:
