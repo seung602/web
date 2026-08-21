@@ -18,6 +18,8 @@ ar:{barrier_soothing:'حاجز·تهدئة',sun_protection:'حماية الشم�
 
 function tr(k){ return T[state.lang][k] || T.en[k] || k; }
 function themeT(k){ return (THEME_T[state.lang]||{})[k] || THEME_T.en[k] || k; }
+// 언어 토글에 맞춰 상품명을 한글/영문으로 전환. 영문 번역이 없으면 한글로 폴백.
+function pname(p){ return (state.lang !== 'ko' && p.product_name_en) ? p.product_name_en : p.product_name; }
 function esc(x){ return String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function arr(v){ if(!v) return []; if(Array.isArray(v)) return v; try{ const x=JSON.parse(v); if(Array.isArray(x)) return x; }catch{} return String(v).split(/[,|;\n]+/).map(x=>x.trim()).filter(Boolean); }
 async function api(u){ const r = await fetch(u); if(!r.ok) throw Error(r.status); return r.json(); }
@@ -94,8 +96,8 @@ function rankCard(p, i){
     if (p.daiso_score) badge = `<span class="metaChip">${tr('mallDaiso')} ${fmt(p.daiso_score)}</span>`;
   }
   const nameHtml = p.product_url
-    ? `<a href="${esc(p.product_url)}" target="_blank" rel="noopener noreferrer" class="prodNameLink">${esc(p.product_name)}</a>`
-    : `<span class="prodName">${esc(p.product_name)}</span>`;
+    ? `<a href="${esc(p.product_url)}" target="_blank" rel="noopener noreferrer" class="prodNameLink">${esc(pname(p))}</a>`
+    : `<span class="prodName">${esc(pname(p))}</span>`;
   return `<div class="rankRow"><div class="rankNo">${i}</div><div class="rankBody"><div class="rankNameLine">${nameHtml} ${badge}</div><div class="meta">${esc(p.brand||'')} · ${esc(p.category||'')}</div></div></div>`;
 }
 
@@ -103,7 +105,7 @@ function renderProducts(){
   $('#products').innerHTML = state.products.map(p => `
   <div class="productCard" data-url="${esc(p.product_url||'')}">
     <div class="source">${esc(p.source||'')}</div>
-    <a href="${esc(p.product_url||'#')}" target="_blank" rel="noopener noreferrer" class="prodNameLink">${esc(p.product_name)}</a>
+    <a href="${esc(p.product_url||'#')}" target="_blank" rel="noopener noreferrer" class="prodNameLink">${esc(pname(p))}</a>
     <div class="meta">${esc(p.brand||'')} · ${esc(p.category||'')}</div>
     <div class="chips">${arr(p.keywords).slice(0,4).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>
   </div>`).join('');
@@ -143,7 +145,7 @@ async function loadChangeData(){
         if (type==='new') badge = `<span class="changeBadge new">🆕</span>`;
         else if (type==='rise') badge = `<span class="changeBadge rise">▲ +${item.diff}</span>`;
         else badge = `<span class="changeBadge fall">▼ ${item.diff}</span>`;
-        const link = item.product_url ? `<a href="${esc(item.product_url)}" target="_blank" rel="noopener noreferrer" class="prodNameLink">${esc(item.product_name)}</a>` : esc(item.product_name);
+        const link = item.product_url ? `<a href="${esc(item.product_url)}" target="_blank" rel="noopener noreferrer" class="prodNameLink">${esc(pname(item))}</a>` : esc(pname(item));
         return `<li>${link} <span class="mallBadge">${mall}</span> ${badge}</li>`;
       }).join('');
     };
