@@ -16,6 +16,7 @@ from .services import (
     load_products,
     get_ranking_change,
     get_search_suggestions,
+    get_categories,
 )
 
 BASE = Path(__file__).resolve().parent.parent
@@ -174,6 +175,7 @@ def products(
     category: str | None = None,
     source: str | None = None,
     keyword: str | None = None,
+    keywords: str | None = None,
     limit: int = Query(200, ge=1, le=5000),
     offset: int = Query(0, ge=0),
 ):
@@ -184,6 +186,8 @@ def products(
     - 첫 로드 80개
     - 더보기마다 50개
     - 전체 상품까지 계속 로드 가능
+
+    keywords: ✅ 콤마구분 여러 키워드를 OR로 검색(트렌드 테마 카드 클릭 시 사용)
     """
     items, date = load_products(
         limit=limit,
@@ -191,6 +195,7 @@ def products(
         category=category,
         source=source,
         keyword=keyword,
+        keywords=keywords,
         offset=offset,
     )
 
@@ -306,26 +311,10 @@ def product_detail(product_id: str):
 def categories():
     """
     상품 카테고리 API
+    ✅ 올리브영 parent_category + 다이소 category를 통합한 11개 고정 카테고리
+       (하드코딩 한→영 번역 포함, get_categories()에서 실제 화면 숫자와 정확히 일치하도록 처리)
     """
-    c = get_catalog_db()
-
-    rows = c.execute(
-        """
-        SELECT
-            COALESCE(parent_category, category, 'Other') AS category,
-            COUNT(*) AS count
-        FROM products
-        WHERE status='ACTIVE'
-        GROUP BY 1
-        ORDER BY count DESC
-        """
-    ).fetchall()
-
-    c.close()
-
-    return {
-        "items": [dict(r) for r in rows],
-    }
+    return get_categories()
 
 
 # ============================================================

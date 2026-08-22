@@ -39,7 +39,8 @@ def api_products():
     q = request.args.get('q')
     category = request.args.get('category')
     source = request.args.get('source')
-    rows, latest = load_products(limit=limit, q=q, category=category, source=source, offset=offset)
+    keywords = request.args.get('keywords')  # ✅ 테마 클릭 시 여러 키워드 OR 검색용
+    rows, latest = load_products(limit=limit, q=q, category=category, source=source, keywords=keywords, offset=offset)
     return jsonify({
         "items": rows,
         "latest_date": latest,

@@ -2,6 +2,29 @@ import json, math, re
 from datetime import datetime, timedelta
 from .database import get_catalog_db, get_trend_db, table_cols
 
+# ✅ 카테고리 11종 하드코딩 매핑 (한글 → 영문)
+# term_translations 테이블(DB 자동번역 캐시)이 없거나 비어있어도
+# 카테고리는 항상 정확한 번역이 나오도록 코드에 직접 고정한다.
+# 이 11개는 올리브영 parent_category + 다이소 category(부모 없음)를
+# COALESCE(NULLIF(parent_category,''), category) 기준으로 합쳤을 때 나오는
+# 실제 화면 카테고리 목록과 정확히 일치한다.
+CATEGORY_EN_MAP = {
+    "스킨케어": "Skincare",
+    "바디케어": "Body Care",
+    "마스크팩": "Mask Pack",
+    "헤어케어": "Hair Care",
+    "클렌징": "Cleansing",
+    "뷰티소품": "Beauty Tools",
+    "선케어": "Sun Care",
+    "메이크업": "Makeup",
+    "더모 코스메틱": "Dermocosmetics",
+    "맨즈케어": "Men's Care",
+    "향수": "Perfume",
+}
+
+def category_en(cat_ko):
+    return CATEGORY_EN_MAP.get((cat_ko or "").strip())
+
 THEME_RULES = [
     ("barrier_soothing", ["ceramide","centella","cica","panthenol","ectoin","barrier","sensitive skin","redness","rosacea","soothing"]),
     ("sun_protection", ["sunscreen","sun stick","sunstick","spf","sun care"]),
@@ -202,13 +225,27 @@ def _load_term_maps(conn):
             maps[row['term_type']][row['term_ko']] = row['term_en']
     return maps
 
+def _canonical_category(p):
+    """올리브영은 parent_category, 다이소는 category만 채워지므로 이 둘을 합쳐
+    실제 화면에 노출되는 11개 카테고리 기준값을 만든다."""
+    pc = (p.get('parent_category') or '').strip()
+    return pc if pc else (p.get('category') or '').strip()
+
 def _apply_term_translations(rows, term_maps):
     for p in rows:
         p['brand_en'] = term_maps['brand'].get(p.get('brand'))
-        p['category_en'] = term_maps['category'].get(p.get('category'))
-        p['parent_category_en'] = term_maps['parent_category'].get(p.get('parent_category'))
+        # ✅ 카테고리는 하드코딩 매핑을 우선 사용(항상 정확), 없으면 기존 term_translations 테이블 폴백
+        cat_canon = _canonical_category(p)
+        p['category_en'] = category_en(cat_canon) or term_maps['category'].get(p.get('category'))
+        p['parent_category_en'] = category_en(p.get('parent_category')) or term_maps['parent_category'].get(p.get('parent_category'))
 
-def load_products(limit=None, q=None, category=None, source=None, keyword=None, offset=0):
+def load_products(limit=None, q=None, category=None, source=None, keyword=None, keywords=None, offset=0):
+    """
+    keyword: 단일 키워드 검색(기존)
+    keywords: 리스트 또는 콤마구분 문자열. 여러 키워드를 OR로 묶어서 검색한다.
+              ✅ 트렌드 '테마' 카드를 클릭했을 때 그 테마에 속한 top_keywords 여러 개를
+              한번에 OR 검색하기 위해 추가(신규).
+    """
     c = get_catalog_db()
     cols = table_cols(c, 'products')
     attr_exists = c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='product_attributes'").fetchone() is not None
@@ -222,24 +259,44 @@ def load_products(limit=None, q=None, category=None, source=None, keyword=None, 
         for x in ('product_type','keywords','skin_type','concerns','texture','key_ingredients','claims'):
             if x in cols: base.append(f'p.{x}')
     where = ["p.status='ACTIVE'"]; args = []
-    if q or keyword:
+
+    sf = ['p.product_name','p.brand','p.category','p.parent_category']
+    if has_en: sf.append('p.product_name_en')
+    if attr_exists: sf += ['a.product_type','a.keywords','a.skin_type','a.concerns','a.texture','a.key_ingredients','a.claims']
+    else: sf += [f'p.{x}' for x in ('product_type','keywords','skin_type','concerns','texture','key_ingredients','claims') if x in cols]
+
+    # 콤마구분 문자열도 허용
+    kw_list = []
+    if keywords:
+        kw_list = [k.strip() for k in (keywords if isinstance(keywords, list) else str(keywords).split(',')) if k.strip()]
+
+    if kw_list:
+        or_groups = []
+        for kv in kw_list:
+            kv_like = f'%{kv.lower()}%'
+            clause = '(' + ' OR '.join(f'LOWER(COALESCE({x},\'\')) LIKE LOWER(?)' for x in sf) + ')'
+            or_groups.append(clause)
+            args += [kv_like] * len(sf)
+        where.append('(' + ' OR '.join(or_groups) + ')')
+    elif q or keyword:
         qv_raw = (q or keyword).strip().lower()
         qv = f'%{qv_raw}%'
-        sf = ['p.product_name','p.brand','p.category','p.parent_category']
-        if has_en: sf.append('p.product_name_en')
-        if attr_exists: sf += ['a.product_type','a.keywords','a.skin_type','a.concerns','a.texture','a.key_ingredients','a.claims']
-        else: sf += [f'p.{x}' for x in ('product_type','keywords','skin_type','concerns','texture','key_ingredients','claims') if x in cols]
         clauses = [f'LOWER(COALESCE({x},\'\')) LIKE LOWER(?)' for x in sf]
         clause_args = [qv] * len(sf)
         matched_brands = [ko for ko, en in term_maps['brand'].items() if qv_raw in en.lower()]
         matched_categories = [ko for ko, en in term_maps['category'].items() if qv_raw in en.lower()]
         matched_parent = [ko for ko, en in term_maps['parent_category'].items() if qv_raw in en.lower()]
+        # ✅ 하드코딩 카테고리 영문명도 검색어 매칭 대상에 포함
+        matched_hard_cat = [ko for ko, en in CATEGORY_EN_MAP.items() if qv_raw in en.lower()]
         if matched_brands:
             clauses.append(f"p.brand IN ({','.join('?' for _ in matched_brands)})"); clause_args += matched_brands
         if matched_categories:
             clauses.append(f"p.category IN ({','.join('?' for _ in matched_categories)})"); clause_args += matched_categories
         if matched_parent:
             clauses.append(f"p.parent_category IN ({','.join('?' for _ in matched_parent)})"); clause_args += matched_parent
+        if matched_hard_cat:
+            clauses.append(f"(p.category IN ({','.join('?' for _ in matched_hard_cat)}) OR p.parent_category IN ({','.join('?' for _ in matched_hard_cat)}))")
+            clause_args += matched_hard_cat + matched_hard_cat
         where.append('(' + ' OR '.join(clauses) + ')')
         args += clause_args
     if category: where.append('(p.category=? OR p.parent_category=?)'); args += [category, category]
@@ -260,25 +317,40 @@ def load_products(limit=None, q=None, category=None, source=None, keyword=None, 
     return rows, latest
 
 def get_categories():
-    """✅ 신규 추가: 카테고리 목록 (다국어 지원)"""
+    """✅ 카테고리 목록 (11종 하드코딩 + 실시간 개수)
+    올리브영은 parent_category, 다이소는 category만 채워지므로
+    COALESCE(NULLIF(parent_category,''), category) 기준으로 통합 집계한다.
+    (실제 화면에 노출되는 '스킨케어(3132)' 등의 카테고리 드롭다운과 정확히 일치)
+    """
     c = get_catalog_db()
-    term_maps = _load_term_maps(c)
     rows = c.execute("""
-        SELECT category, COUNT(*) as count 
-        FROM products 
-        WHERE status='ACTIVE' AND category IS NOT NULL AND category != ''
-        GROUP BY category 
+        SELECT
+            CASE WHEN parent_category IS NOT NULL AND parent_category != ''
+                 THEN parent_category ELSE category END AS canon,
+            COUNT(*) as count
+        FROM products
+        WHERE status='ACTIVE'
+          AND (
+              (parent_category IS NOT NULL AND parent_category != '')
+              OR (category IS NOT NULL AND category != '')
+          )
+        GROUP BY canon
         ORDER BY count DESC
     """).fetchall()
     items = []
     for r in rows:
-        cat_ko = r['category']
-        cat_en = term_maps['category'].get(cat_ko)
+        cat_ko = r['canon']
+        if cat_ko not in CATEGORY_EN_MAP:
+            # 11종 하드코딩 목록에 없는 값(오분류/신규 미분류 등)은 카테고리 드롭다운에서 제외
+            continue
         items.append({
             "category": cat_ko,
-            "category_en": cat_en,
+            "category_en": CATEGORY_EN_MAP[cat_ko],
             "count": r['count']
         })
+    # 하드코딩 순서(대표 카테고리 순)로 정렬하고 싶다면 아래처럼 고정 순서 사용 가능.
+    order = list(CATEGORY_EN_MAP.keys())
+    items.sort(key=lambda x: order.index(x['category']) if x['category'] in order else 99)
     c.close()
     return {"items": items}
 
