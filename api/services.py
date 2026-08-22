@@ -233,7 +233,10 @@ def _canonical_category(p):
 
 def _apply_term_translations(rows, term_maps):
     for p in rows:
-        p['brand_en'] = term_maps['brand'].get(p.get('brand'))
+        # ✅ products.brand_en 컬럼에 이미 번역된 값이 있으면 그것을 우선 사용하고,
+        # 없을 때만 term_translations 캐시 테이블(term_maps)로 폴백한다.
+        # (term_translations 테이블이 DB에 없거나 비어 있어도 brand_en이 항상 나오게 하기 위함)
+        p['brand_en'] = p.get('brand_en') or term_maps['brand'].get(p.get('brand'))
         # ✅ 카테고리는 하드코딩 매핑을 우선 사용(항상 정확), 없으면 기존 term_translations 테이블 폴백
         cat_canon = _canonical_category(p)
         p['category_en'] = category_en(cat_canon) or term_maps['category'].get(p.get('category'))
@@ -251,7 +254,7 @@ def load_products(limit=None, q=None, category=None, source=None, keyword=None, 
     attr_exists = c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='product_attributes'").fetchone() is not None
     has_en = 'product_name_en' in cols
     term_maps = _load_term_maps(c)
-    base = ['p.product_id','p.source','p.brand','p.product_name','p.product_url','p.category','p.parent_category','p.price','p.sale_price','p.review_count','p.rating','p.daiso_score','p.is_new','p.status']
+    base = ['p.product_id','p.source','p.brand','p.brand_en','p.product_name','p.product_url','p.category','p.parent_category','p.price','p.sale_price','p.review_count','p.rating','p.daiso_score','p.is_new','p.status']
     if has_en: base.append('p.product_name_en')
     if attr_exists:
         base += ['a.product_type','a.keywords','a.skin_type','a.concerns','a.texture','a.key_ingredients','a.claims']
@@ -361,11 +364,25 @@ def ranking_rows(kind='overall', limit=50):
     attr_exists = c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='product_attributes'").fetchone() is not None
     cols = table_cols(c, 'products')
     term_maps = _load_term_maps(c)
-    fields = ['p.product_id','p.source','p.brand','p.product_name','p.product_url','p.category','p.parent_category','p.price','p.sale_price','p.review_count','p.rating','p.daiso_score','p.is_new']
+    fields = ['p.product_id','p.source','p.brand','p.brand_en','p.product_name','p.product_url','p.category','p.parent_category','p.price','p.sale_price','p.review_count','p.rating','p.daiso_score','p.is_new']
     if 'product_name_en' in cols: fields.append('p.product_name_en')
     if attr_exists: fields += ['a.product_type','a.keywords','a.skin_type','a.concerns','a.texture','a.key_ingredients','a.claims']
     join = " LEFT JOIN product_attributes a ON a.product_id=p.product_id" if attr_exists else ""
-    rows = [dict(r) for r in c.execute(f"SELECT {','.join(fields)} FROM products p{join} WHERE p.status='ACTIVE'").fetchall()]
+
+    # ✅ 오늘자 daily_rankings(올리브영/다이소)에 실제로 잡힌 상품은
+    # 카탈로그 전체 크롤링 상태(products.status)와 무관하게 랭킹에 포함시킨다.
+    # (올리브영 전체 카탈로그 크롤링은 339페이지·약 1시간이 걸리는데, 그 사이 베스트 랭킹이
+    #  갱신되면서 랭킹엔 있지만 그 시점 카탈로그 크롤러가 못 본 상품이 MISSING으로 잘못
+    #  찍히는 경우가 있어, 올리브영/종합 랭킹이 실제보다 적게 표시되던 문제를 방지한다.)
+    ranked_ids = set(olive) | set(daiso)
+    if ranked_ids:
+        placeholders = ','.join('?' for _ in ranked_ids)
+        where = f"(p.status='ACTIVE' OR p.product_id IN ({placeholders}))"
+        q_args = list(ranked_ids)
+    else:
+        where = "p.status='ACTIVE'"
+        q_args = []
+    rows = [dict(r) for r in c.execute(f"SELECT {','.join(fields)} FROM products p{join} WHERE {where}", q_args).fetchall()]
     c.close()
     t = get_trend_db(); tm = _trend_scores(t); t.close()
     for p in rows:
