@@ -11,6 +11,9 @@
 </head>
 <body>
 <header>
+    <button id="hamburgerBtn" class="hamburgerBtn" aria-label="Menu">
+        <span></span><span></span><span></span>
+    </button>
     <div class="brand">K-BEAUTY <span>INTELLIGENCE</span></div>
     <nav>
         <button class="nav active" data-page="trend" data-t="navTrend">트렌드</button>
@@ -22,6 +25,39 @@
         <button data-lang="ar">العربية</button>
     </div>
 </header>
+
+<div id="menuOverlay" class="menuOverlay"></div>
+<aside id="sideMenu" class="sideMenu">
+    <div class="sideMenuHead">
+        <div class="brand">K-BEAUTY <span>INTELLIGENCE</span></div>
+        <button id="menuCloseBtn" class="menuCloseBtn" aria-label="Close">×</button>
+    </div>
+
+    <div class="menuGroup">
+        <button class="menuGroupHead" data-group="trend">
+            <span data-t="navTrend">트렌드</span><span class="menuChev">▾</span>
+        </button>
+        <div class="menuSub open" data-sub="trend">
+            <button class="menuItem" data-goto="trend" data-period="daily" data-t="daily">일간 트렌드</button>
+            <button class="menuItem" data-goto="trend" data-period="weekly" data-t="weekly">주간 트렌드</button>
+            <button class="menuItem" data-goto="trend" data-period="monthly" data-t="monthly">월간 트렌드</button>
+            <button class="menuItem" data-goto="trend" data-anchor="themeGrid" data-t="themeRollup">테마별 트렌드</button>
+        </div>
+    </div>
+
+    <div class="menuGroup">
+        <button class="menuGroupHead" data-group="products">
+            <span data-t="navProducts">상품</span><span class="menuChev">▾</span>
+        </button>
+        <div class="menuSub open" data-sub="products">
+            <button class="menuItem" data-goto="products" data-kind="overall" data-t="overall">종합랭킹</button>
+            <button class="menuItem" data-goto="products" data-kind="olive" data-t="olive">올리브영 랭킹</button>
+            <button class="menuItem" data-goto="products" data-kind="daiso" data-t="daiso">다이소 랭킹</button>
+            <button class="menuItem" data-goto="products" data-kind="change" data-t="change">랭킹 변동</button>
+            <button class="menuItem" data-goto="products" data-anchor="catalogPanel" data-t="catalog">전체 카탈로그</button>
+        </div>
+    </div>
+</aside>
 
 <!-- Page 1: Trend -->
 <main id="trendPage" class="page active">
@@ -142,7 +178,7 @@
     </section>
 
     <!-- 전체 카탈로그 -->
-    <section class="panel collapsible">
+    <section class="panel collapsible" id="catalogPanel">
         <div class="panelHead toggleHead">
             <div>
                 <h2 data-t="catalog">🛍️ 전체 상품 카탈로그</h2>

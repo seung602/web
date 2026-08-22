@@ -1,7 +1,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 
-const state = { lang:'ko', kind:'overall', page:0, q:'', category:'', products:[], currentPeriod:'daily', hasMore:false, initialLoad:80, loadMoreStep:50 };
+const state = { lang:'ko', kind:'overall', page:0, q:'', category:'', products:[], currentPeriod:'daily', hasMore:false, initialLoad:80, loadMoreStep:50, activeKeywords:null };
 let SUGGESTIONS = [];
 
 const T = {
@@ -36,13 +36,62 @@ function applyLang(){
 }
 
 $$('.langs button').forEach(b => b.onclick = () => { state.lang = b.dataset.lang; applyLang(); });
-$$('.nav').forEach(b => b.onclick = () => {
-  const p = b.dataset.page;
-  $$('.nav').forEach(x => x.classList.toggle('active', x===b));
+
+// ✅ 공통 페이지 전환 함수 (상단 nav / 햄버거 메뉴 공용)
+function goToPage(p){
+  $$('.nav').forEach(x => x.classList.toggle('active', x.dataset.page===p));
   $$('.page').forEach(x => x.classList.remove('active'));
   $('#'+p+'Page').classList.add('active');
   if (p==='products' && !state.products.length) loadProducts();
-});
+}
+$$('.nav').forEach(b => b.onclick = () => goToPage(b.dataset.page));
+
+// ========== ✅ 햄버거 메뉴 ==========
+function openMenu(){ $('#sideMenu').classList.add('open'); $('#menuOverlay').classList.add('show'); }
+function closeMenu(){ $('#sideMenu').classList.remove('open'); $('#menuOverlay').classList.remove('show'); }
+$('#hamburgerBtn').onclick = openMenu;
+$('#menuCloseBtn').onclick = closeMenu;
+$('#menuOverlay').onclick = closeMenu;
+
+$$('.menuGroupHead').forEach(head => head.addEventListener('click', () => {
+  head.closest('.menuGroup').classList.toggle('collapsed');
+}));
+
+$$('.menuItem').forEach(item => item.addEventListener('click', () => {
+  const page = item.dataset.goto;
+  goToPage(page);
+
+  if (page === 'trend' && item.dataset.period){
+    const tabBtn = $$('.periodTab').find(b => b.dataset.period === item.dataset.period);
+    if (tabBtn) tabBtn.click();
+  }
+  if (page === 'products' && item.dataset.kind){
+    const tabBtn = $$('.rankTab').find(b => b.dataset.kind === item.dataset.kind);
+    if (tabBtn) tabBtn.click();
+  }
+  if (item.dataset.anchor){
+    setTimeout(() => {
+      const el = document.getElementById(item.dataset.anchor);
+      if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+    }, 80);
+  }
+  closeMenu();
+}));
+
+// ✅ 테마/키워드 클릭 → 상품 페이지로 이동해 관련 상품 목록 필터링
+function goToProductsWithKeywords(keywordsArr){
+  goToPage('products');
+  state.q = '';
+  state.category = '';
+  $('#search').value = (keywordsArr||[]).join(', ');
+  $('#category').value = '';
+  loadProductsByKeywords(keywordsArr);
+  closeMenu();
+  setTimeout(() => {
+    const el = document.getElementById('catalogPanel');
+    if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  }, 80);
+}
 $$('.periodTab').forEach(b => b.onclick = () => {
   state.currentPeriod = b.dataset.period;
   $$('.periodTab').forEach(x => x.classList.toggle('active', x===b));
@@ -58,7 +107,7 @@ function renderTrends(a){
     if (!x.has_history) chips.push(`<span class="metaChip chipNew">✨ ${tr('new')}</span>`);
     if (x.theme && x.theme !== 'other') chips.push(`<span class="metaChip">${esc(themeT(x.theme))}</span>`);
     chips.push(`<span class="metaChip">${tr('platforms')}: ${Math.max(1, Math.round((x.cross_platform_score||0)/33.3))}</span>`);
-    return `<div class="trendRow"><div class="rankNo">${i+1}</div><div class="rankBody"><div class="rankNameLine"><span class="trendName">${esc(x.keyword)}</span> ${chips.join(' ')}</div><div class="bar"><i style="width:${Math.min(100, Number(x.trend_score)||0)}%"></i></div></div><div class="grow">${fmt(x.trend_score)}</div></div>`;
+    return `<div class="trendRow"><div class="rankNo">${i+1}</div><div class="rankBody"><div class="rankNameLine"><span class="trendName clickable" data-kw="${esc(x.keyword)}">${esc(x.keyword)}</span> ${chips.join(' ')}</div><div class="bar"><i style="width:${Math.min(100, Number(x.trend_score)||0)}%"></i></div></div><div class="grow">${fmt(x.trend_score)}</div></div>`;
   }).join('') : `<p class="muted">${tr('noData')}</p>`;
 }
 
@@ -71,7 +120,9 @@ function renderThemes(themes){
   $('#themeGrid').innerHTML = (themes && themes.length) ? themes.map((t,i) => {
     const rc = i===0?'gold':i===1?'silver':i===2?'bronze':'normal';
     const rl = state.lang==='ko' ? `${i+1}위` : state.lang==='ar' ? `المركز ${i+1}` : `#${i+1}`;
-    return `<div class="themeCard" style="border-color:${t.color}44"><div class="themeHeader"><span class="themeRank ${rc}">${rl}</span><span class="themeIcon">${t.icon}</span><span class="themeName">${esc(themeT(t.theme))}</span></div><div class="meta">${t.keyword_count} ${kwLabel}</div><div class="themeKeywords">${(t.top_keywords||[]).map(k=>`<span class="chip">${esc(k.keyword)}</span>`).join('')}</div></div>`;
+    // ✅ 테마 카드 전체를 클릭하면 이 테마의 top_keywords를 OR로 묶어 상품 검색
+    const themeKwList = (t.top_keywords||[]).map(k=>k.keyword).join(',');
+    return `<div class="themeCard" style="border-color:${t.color}44" data-theme-kw="${esc(themeKwList)}"><div class="themeHeader"><span class="themeRank ${rc}">${rl}</span><span class="themeIcon">${t.icon}</span><span class="themeName">${esc(themeT(t.theme))}</span></div><div class="meta">${t.keyword_count} ${kwLabel}</div><div class="themeKeywords">${(t.top_keywords||[]).map(k=>`<span class="chip" data-kw="${esc(k.keyword)}">${esc(k.keyword)}</span>`).join('')}</div></div>`;
   }).join('') : `<p class="muted">${tr('noData')}</p>`;
 }
 
@@ -116,11 +167,27 @@ function renderProducts(){
 }
 
 async function loadProducts(reset=true){
-  if (reset){ state.page = 0; state.products = []; }
+  if (reset){ state.page = 0; state.products = []; state.activeKeywords = null; }
   const q = encodeURIComponent(state.q), cat = encodeURIComponent(state.category);
   const limit = reset ? state.initialLoad : state.loadMoreStep;
   const offset = reset ? 0 : state.products.length;
   const d = await api(`/api/products?q=${q}&category=${cat}&limit=${limit}&offset=${offset}`);
+  state.products = reset ? d.items : state.products.concat(d.items);
+  state.hasMore = d.has_more;
+  $('#productDate').textContent = d.latest_date || $('#productDate').textContent;
+  renderProducts();
+}
+
+// ✅ 테마/키워드 클릭용: 여러 키워드를 OR로 검색
+async function loadProductsByKeywords(keywordsArr, reset=true){
+  if (!keywordsArr || !keywordsArr.length) return loadProducts(reset);
+  if (reset){ state.page = 0; state.products = []; }
+  state.activeKeywords = keywordsArr;
+  const kw = encodeURIComponent(keywordsArr.join(','));
+  const cat = encodeURIComponent(state.category);
+  const limit = reset ? state.initialLoad : state.loadMoreStep;
+  const offset = reset ? 0 : state.products.length;
+  const d = await api(`/api/products?keywords=${kw}&category=${cat}&limit=${limit}&offset=${offset}`);
   state.products = reset ? d.items : state.products.concat(d.items);
   state.hasMore = d.has_more;
   $('#productDate').textContent = d.latest_date || $('#productDate').textContent;
@@ -185,7 +252,7 @@ $('#search').addEventListener('input', e => { state.q = e.target.value; renderSu
 $('#search').addEventListener('focus', renderSuggestions);
 document.addEventListener('click', e => { if (!e.target.closest('.searchWrap')) $('#suggestBox').classList.remove('show'); });
 $('#category').addEventListener('change', e => { state.category = e.target.value; loadProducts(); });
-$('#loadMore').onclick = () => loadProducts(false);
+$('#loadMore').onclick = () => state.activeKeywords ? loadProductsByKeywords(state.activeKeywords, false) : loadProducts(false);
 
 $$('.rankTab').forEach(b => b.onclick = () => {
   state.kind = b.dataset.kind;
@@ -219,6 +286,26 @@ function renderAll(){
     renderProducts();
   }
 }
+
+// ✅ 트렌드 키워드칩 / 테마카드 클릭 → 상품 페이지 필터링 (이벤트 위임)
+document.addEventListener('click', e => {
+  const kwChip = e.target.closest('.chip[data-kw]');
+  if (kwChip){
+    e.stopPropagation();
+    goToProductsWithKeywords([kwChip.dataset.kw]);
+    return;
+  }
+  const trendKw = e.target.closest('.trendName.clickable[data-kw]');
+  if (trendKw){
+    goToProductsWithKeywords([trendKw.dataset.kw]);
+    return;
+  }
+  const themeCard = e.target.closest('.themeCard[data-theme-kw]');
+  if (themeCard){
+    const list = (themeCard.dataset.themeKw || '').split(',').map(s=>s.trim()).filter(Boolean);
+    if (list.length) goToProductsWithKeywords(list);
+  }
+});
 
 $('#close').onclick = () => $('#modal').classList.remove('show');
 $('#modal').onclick = e => { if (e.target.id==='modal') $('#modal').classList.remove('show'); };
